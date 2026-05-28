@@ -1,9 +1,10 @@
 import os
 import subprocess
 import shutil
+import glob
 
 print("=" * 50)
-print("WindowStatus Build Script")
+print("WindowStatus Build Script v2.0")
 print("=" * 50)
 print()
 
@@ -14,40 +15,102 @@ temp_build = r"C:\TempBuild"
 project_dir = os.path.dirname(os.path.abspath(__file__))
 
 # Clean
-print("[1/5] Cleaning...")
+print("[1/6] Cleaning...")
 for d in [build_env, temp_build]:
     if os.path.exists(d):
         shutil.rmtree(d)
 
 # Create venv
-print("[2/5] Creating virtual environment...")
+print("[2/6] Creating virtual environment...")
 subprocess.run([python_path, "-m", "venv", build_env], check=True)
 
 # Install deps
-print("[3/5] Installing dependencies...")
+print("[3/6] Installing dependencies...")
 pip = os.path.join(build_env, "Scripts", "pip.exe")
 subprocess.run([pip, "install", "PyQt5", "psutil", "pywin32", "pyinstaller", "-q"], check=True)
 
 # Copy files
-print("[4/5] Copying and building...")
+print("[4/6] Copying project files...")
 os.makedirs(temp_build)
-for f in os.listdir(project_dir):
-    if f.endswith(('.py', '.ico')):
-        shutil.copy2(os.path.join(project_dir, f), temp_build)
+
+# 复制核心目录
+for dir_name in ['core', 'plugins']:
+    src_dir = os.path.join(project_dir, dir_name)
+    dst_dir = os.path.join(temp_build, dir_name)
+    if os.path.exists(src_dir):
+        shutil.copytree(src_dir, dst_dir)
+
+# 复制主程序和图标
+for f in ['main.py', 'icon.ico', 'icon.svg']:
+    src = os.path.join(project_dir, f)
+    if os.path.exists(src):
+        shutil.copy2(src, temp_build)
 
 # Build
+print("[5/6] Building...")
 pyinstaller = os.path.join(build_env, "Scripts", "pyinstaller.exe")
-subprocess.run([
-    pyinstaller, "--onefile", "--windowed",
-    "--icon", "icon.ico",
-    "--name", "WindowStatus",
-    "window_status.py"
-], cwd=temp_build, check=True)
+
+# 收集所有 Python 文件
+py_files = []
+for root, dirs, files in os.walk(temp_build):
+    for file in files:
+        if file.endswith('.py'):
+            py_files.append(os.path.join(root, file))
+
+# 使用 spec 文件打包
+spec_content = f"""# -*- mode: python ; coding: utf-8 -*-
+import os
+import sys
+
+a = Analysis(
+    ['main.py'],
+    pathex=['{temp_build}'],
+    binaries=[],
+    datas=[],
+    hiddenimports=['sqlite3', 'psutil', 'win32gui', 'win32process', 'win32con', 'PyQt5.sip'],
+    hookspath=[],
+    hooksconfig={{}},
+    runtime_hooks=[],
+    excludes=[],
+    noarchive=False,
+)
+
+pyz = PYZ(a.pure)
+
+exe = EXE(
+    pyz,
+    a.scripts,
+    a.binaries,
+    a.datas,
+    [],
+    name='WindowStatus',
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    runtime_tmpdir=None,
+    console=False,
+    disable_windowed_traceback=False,
+    argv_emulation=False,
+    target_arch=None,
+    codesign_identity=None,
+    entitlements_file=None,
+    icon='icon.ico',
+)
+"""
+
+spec_file = os.path.join(temp_build, 'WindowStatus.spec')
+with open(spec_file, 'w', encoding='utf-8') as f:
+    f.write(spec_content)
+
+# 执行打包
+subprocess.run([pyinstaller, spec_file], cwd=temp_build, check=True)
 
 # Copy result
 exe_path = os.path.join(temp_build, "dist", "WindowStatus.exe")
 if os.path.exists(exe_path):
-    print("[5/5] Copying exe...")
+    print("[6/6] Copying exe...")
     shutil.copy2(exe_path, project_dir)
     print()
     print("=" * 50)
