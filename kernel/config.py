@@ -8,6 +8,7 @@ import json
 import os
 import logging
 from typing import Dict, Any, Optional, List
+from contextlib import contextmanager
 
 logger = logging.getLogger("WindowStatus.config")
 
@@ -180,14 +181,25 @@ DEFAULT_CONFIG = {
     "version": "3.0.0",
     "opacity": 0.9,
     "always_on_top": True,
+    "position": "top-right",
     "categories": DEFAULT_CATEGORIES,
-    "enabled_plugins": ["monitor", "overlay", "tray", "stats", "rules"],
     "plugins": {
         "monitor": True,
         "overlay": True,
         "tray": True,
         "stats": True,
-        "rules": True
+        "rules": True,
+        "about": True,
+        "settings": True,
+        "reminders": True
+    },
+    "reminders": {
+        "游戏": {"enabled": True, "interval_minutes": 60, "message": "已经连续玩了 {minutes} 分钟，该活动活动了！"},
+        "办公": {"enabled": True, "interval_minutes": 45, "message": "已经连续办公 {minutes} 分钟，休息一下吧！"},
+        "摸鱼": {"enabled": True, "interval_minutes": 30, "message": "已经连续摸鱼 {minutes} 分钟了，休息一下眼睛吧！"},
+        "开发": {"enabled": True, "interval_minutes": 45, "message": "已经连续开发 {minutes} 分钟，站起来活动活动！"},
+        "工具": {"enabled": True, "interval_minutes": 45, "message": "已经连续使用工具 {minutes} 分钟，喝口水休息一下！"},
+        "_default": {"enabled": False, "interval_minutes": 45, "message": "已经连续工作 {minutes} 分钟，喝口水休息一下！"}
     },
     "logging": {
         "level": "INFO",
@@ -215,6 +227,7 @@ class Config:
         """
         self.config_path = config_path
         self._config: Dict[str, Any] = {}
+        self._batch_mode = False
         self._ensure_dir()
         self.load()
     
@@ -253,21 +266,50 @@ class Config:
     
     def _migrate_config(self):
         """迁移旧版本配置"""
-        # v2.0 -> v3.0: 添加 enabled_plugins
-        if "enabled_plugins" not in self._config:
-            # 从默认配置 + 旧 plugins 配置推断，确保默认插件不丢失
+        # v2.0 -> v3.0: 旧版用 enabled_plugins 列表，新版统一用 plugins 字典
+        if "enabled_plugins" in self._config:
+            old_enabled = self._config.pop("enabled_plugins")
+            # 将列表转换为字典，确保默认插件不丢失
             default_plugins = DEFAULT_CONFIG.get("plugins", {})
-            old_plugins = self._config.get("plugins", {})
-            # 合并：默认插件为基础，旧配置覆盖
-            merged = {**default_plugins, **old_plugins}
-            enabled = [name for name, enabled in merged.items() if enabled]
-            self._config["enabled_plugins"] = enabled
+            plugins_dict = self._config.get("plugins", {})
+            # 旧列表中的插件标记为启用
+            for name in old_enabled:
+                plugins_dict[name] = True
+            # 合并默认插件（保留旧配置中已有的 True/False）
+            for name, default_val in default_plugins.items():
+                if name not in plugins_dict:
+                    plugins_dict[name] = default_val
+            self._config["plugins"] = plugins_dict
         
         # 更新版本号
-        self._config["version"] = "3.0.0"
+        self._config["version"] = "3.1.0"
     
+    @contextmanager
+    def batch_update(self):
+        """
+        批量更新上下文管理器
+
+        在此上下文内，所有修改操作不会触发磁盘写入。
+        退出时统一保存一次。
+
+        用法：
+            with config.batch_update():
+                config.set("opacity", 0.8)
+                config.set("always_on_top", False)
+                # ... 多次修改 ...
+            # 退出时自动 save()
+        """
+        self._batch_mode = True
+        try:
+            yield
+        finally:
+            self._batch_mode = False
+            self.save()
+
     def save(self):
         """保存配置文件"""
+        if self._batch_mode:
+            return
         try:
             with open(self.config_path, 'w', encoding='utf-8') as f:
                 json.dump(self._config, f, ensure_ascii=False, indent=2)
@@ -342,6 +384,15 @@ class Config:
         self._config["always_on_top"] = enabled
         self.save()
     
+    def get_position(self) -> str:
+        """获取启动位置（top-left/top-right/bottom-left/bottom-right/custom）"""
+        return self._config.get("position", "top-right")
+    
+    def set_position(self, position: str):
+        """设置启动位置"""
+        self._config["position"] = position
+        self.save()
+    
     def is_plugin_enabled(self, plugin_name: str) -> bool:
         """检查插件是否启用"""
         plugins = self._config.get("plugins", {})
@@ -352,13 +403,6 @@ class Config:
         if "plugins" not in self._config:
             self._config["plugins"] = {}
         self._config["plugins"][plugin_name] = True
-        
-        # 同时更新 enabled_plugins 列表
-        enabled = self._config.get("enabled_plugins", [])
-        if plugin_name not in enabled:
-            enabled.append(plugin_name)
-            self._config["enabled_plugins"] = enabled
-        
         self.save()
     
     def disable_plugin(self, plugin_name: str):
@@ -366,15 +410,9 @@ class Config:
         if "plugins" not in self._config:
             self._config["plugins"] = {}
         self._config["plugins"][plugin_name] = False
-        
-        # 同时更新 enabled_plugins 列表
-        enabled = self._config.get("enabled_plugins", [])
-        if plugin_name in enabled:
-            enabled.remove(plugin_name)
-            self._config["enabled_plugins"] = enabled
-        
         self.save()
     
     def get_enabled_plugins(self) -> List[str]:
-        """获取启用的插件列表"""
-        return self._config.get("enabled_plugins", [])
+        """获取启用的插件列表（从 plugins 字典推导）"""
+        plugins = self._config.get("plugins", {})
+        return [name for name, enabled in plugins.items() if enabled]

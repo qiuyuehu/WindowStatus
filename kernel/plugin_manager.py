@@ -86,6 +86,9 @@ class PluginManager:
             'plugins.tray.plugin',
             'plugins.stats.plugin',
             'plugins.rules.plugin',
+            'plugins.about.plugin',
+            'plugins.settings.plugin',
+            'plugins.reminders.plugin',
         ]
         
         # 确保 plugins 包可用

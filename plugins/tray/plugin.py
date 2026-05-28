@@ -253,7 +253,7 @@ class TrayPlugin(Plugin):
             except FileNotFoundError:
                 winreg.CloseKey(key)
                 return False
-        except:
+        except Exception:
             return False
     
     def _on_category_matched(self, **kwargs):

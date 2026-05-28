@@ -2,20 +2,15 @@
 __pycache__/
 *.py[cod]
 *$py.class
-*.so
-.Python
-build/
-dist/
-*.spec
 *.egg-info/
-*.egg
+dist/
+build/
+*.spec
 
-# Virtual Environment
+# Virtual environment
 venv/
-env/
 .venv/
-C:\BuildEnv/
-C:\TempBuild/
+C:\BuildEnv\
 
 # IDE
 .vscode/
@@ -23,13 +18,12 @@ C:\TempBuild/
 *.swp
 *.swo
 
+# PyInstaller output
+WindowStatus.exe
+
 # OS
-.DS_Store
 Thumbs.db
+Desktop.ini
 
-# Config (user specific)
-.WindowStatus/
-
-# Backup files
-*.bak
-*.backup
+# Logs
+*.log

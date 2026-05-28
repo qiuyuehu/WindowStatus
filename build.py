@@ -2,14 +2,38 @@ import os
 import subprocess
 import shutil
 import glob
+import sys
 
 print("=" * 50)
 print("WindowStatus Build Script v3.0")
 print("=" * 50)
 print()
 
-# Paths
-python_path = r"C:\Users\秋月\AppData\Local\Programs\Python\Python311\python.exe"
+# Paths - 自动检测 Python 路径
+def find_python():
+    """自动检测 Python 可执行路径"""
+    # 优先使用当前运行的 Python
+    if sys.executable and os.path.exists(sys.executable):
+        return sys.executable
+    
+    # 常见安装路径
+    candidates = [
+        shutil.which("python"),
+        shutil.which("python3"),
+        os.path.expandvars(r"%LOCALAPPDATA%\Programs\Python\Python311\python.exe"),
+        os.path.expandvars(r"%LOCALAPPDATA%\Programs\Python\Python312\python.exe"),
+        os.path.expandvars(r"%LOCALAPPDATA%\Programs\Python\Python310\python.exe"),
+    ]
+    
+    for candidate in candidates:
+        if candidate and os.path.exists(candidate):
+            return candidate
+    
+    print("ERROR: 找不到 Python，请确保 Python 已安装并加入 PATH")
+    sys.exit(1)
+
+python_path = find_python()
+print(f"Python: {python_path}")
 build_env = r"C:\BuildEnv"
 temp_build = r"C:\TempBuild"
 project_dir = os.path.dirname(os.path.abspath(__file__))
@@ -70,12 +94,15 @@ a = Analysis(
     hiddenimports=[
         'sqlite3', 'psutil', 'win32gui', 'win32process', 'win32con', 'PyQt5.sip',
         'kernel', 'kernel.event_bus', 'kernel.plugin_manager', 'kernel.config', 'kernel.core',
-        'plugins', 'plugins.base',
+        'plugins', 'plugins.base', 'plugins.utils',
         'plugins.monitor', 'plugins.monitor.plugin',
         'plugins.overlay', 'plugins.overlay.plugin',
         'plugins.tray', 'plugins.tray.plugin',
-        'plugins.stats', 'plugins.stats.plugin',
+        'plugins.stats', 'plugins.stats.plugin', 'plugins.stats.dialog',
         'plugins.rules', 'plugins.rules.plugin',
+        'plugins.about', 'plugins.about.plugin',
+        'plugins.settings', 'plugins.settings.plugin', 'plugins.settings.dialog',
+        'plugins.reminders', 'plugins.reminders.plugin',
     ],
     hookspath=[],
     hooksconfig={{}},

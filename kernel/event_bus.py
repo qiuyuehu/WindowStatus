@@ -107,19 +107,30 @@ class EventBus:
     def emit(self, event: str, **kwargs):
         """
         同步发送事件，在调用线程执行
-        
+
         Args:
             event: 事件名称
             **kwargs: 事件参数
         """
         with self._lock:
             handlers = self._handlers.get(event, []).copy()
-        
+
         for handler in handlers:
             try:
                 handler(**kwargs)
+            except TypeError as e:
+                # 签名不匹配：handler 接受的参数和 emit 传入的不一致
+                handler_name = getattr(handler, '__name__', repr(handler))
+                logger.error(
+                    f"EventBus: handler 签名不匹配 [{event}] "
+                    f"handler={handler_name}, kwargs={list(kwargs.keys())}, error={e}"
+                )
             except Exception as e:
-                logger.error(f"EventBus: 事件处理异常 [{event}]: {e}")
+                handler_name = getattr(handler, '__name__', repr(handler))
+                logger.error(
+                    f"EventBus: 事件处理异常 [{event}] "
+                    f"handler={handler_name}, error={e}"
+                )
     
     def emit_to_main(self, event: str, **kwargs):
         """
