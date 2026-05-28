@@ -32,6 +32,7 @@ class TrayPlugin:
         self.on_show_settings: Optional[Callable] = None
         self.on_toggle_autostart: Optional[Callable] = None
         self.on_quit: Optional[Callable] = None
+        self.on_show_about: Optional[Callable] = None
         
         # 状态
         self.is_top_action: Optional[QAction] = None
@@ -119,6 +120,10 @@ class TrayPlugin:
         )
         
         self.menu.addSeparator()
+        
+        # 关于
+        about_action = self.menu.addAction("关于")
+        about_action.triggered.connect(lambda: self.on_show_about() if self.on_show_about else None)
         
         # 退出
         quit_action = self.menu.addAction("退出")

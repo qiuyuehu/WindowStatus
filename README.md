@@ -118,13 +118,27 @@ C:\Users\你的用户名\.WindowStatus\
 
 ```
 WindowStatus/
-├── window_status.py   # 主程序
-├── build.py           # 打包脚本
-├── icon.ico           # 程序图标
-├── icon.svg           # 图标源文件
-├── PLAN.md            # 项目规划
-├── README.md          # 项目说明
-└── LICENSE            # MIT 协议
+├── kernel/
+│   ├── __init__.py
+│   ├── core.py          # Kernel 核心类
+│   ├── event_bus.py     # 事件总线
+│   ├── plugin_manager.py # 插件管理器
+│   └── config.py        # 配置管理
+├── plugins/
+│   ├── __init__.py
+│   ├── base.py          # 插件基类
+│   ├── monitor/         # 窗口监控插件
+│   ├── overlay/         # 悬浮窗插件
+│   ├── tray/            # 系统托盘插件
+│   ├── stats/           # 统计插件
+│   └── rules/           # 规则插件
+├── main.py              # 程序入口
+├── build.py             # 打包脚本
+├── icon.ico             # 程序图标
+├── icon.svg             # 图标源文件
+├── PLAN.md              # 项目规划
+├── README.md            # 项目说明
+└── LICENSE              # MIT 协议
 ```
 
 ## 常见问题
@@ -145,6 +159,15 @@ A：右键托盘图标 → "使用统计"，或查看 `C:\Users\你的用户名\
 A：这是 Python 打包的常见误报。代码完全开源，可自行审计后添加白名单。
 
 ## 更新日志
+
+### v3.0.0（2026-05-28）
+
+- 🏗️ 完整插件化架构重构（事件总线驱动）
+- ✨ 事件总线（EventBus）支持线程安全
+- ✨ 插件动态加载/卸载
+- ✨ Rules 插件独立负责分类匹配
+- ✨ 插件发现机制（约定优于配置）
+- 📦 更新打包脚本
 
 ### v2.0.0（2026-05-28）
 

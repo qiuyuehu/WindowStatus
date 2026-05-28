@@ -4,7 +4,7 @@ import shutil
 import glob
 
 print("=" * 50)
-print("WindowStatus Build Script v2.0")
+print("WindowStatus Build Script v3.0")
 print("=" * 50)
 print()
 
@@ -34,7 +34,7 @@ print("[4/6] Copying project files...")
 os.makedirs(temp_build)
 
 # 复制核心目录
-for dir_name in ['core', 'plugins']:
+for dir_name in ['kernel', 'plugins']:
     src_dir = os.path.join(project_dir, dir_name)
     dst_dir = os.path.join(temp_build, dir_name)
     if os.path.exists(src_dir):
@@ -67,7 +67,16 @@ a = Analysis(
     pathex=['{temp_build}'],
     binaries=[],
     datas=[],
-    hiddenimports=['sqlite3', 'psutil', 'win32gui', 'win32process', 'win32con', 'PyQt5.sip'],
+    hiddenimports=[
+        'sqlite3', 'psutil', 'win32gui', 'win32process', 'win32con', 'PyQt5.sip',
+        'kernel', 'kernel.event_bus', 'kernel.plugin_manager', 'kernel.config', 'kernel.core',
+        'plugins', 'plugins.base',
+        'plugins.monitor', 'plugins.monitor.plugin',
+        'plugins.overlay', 'plugins.overlay.plugin',
+        'plugins.tray', 'plugins.tray.plugin',
+        'plugins.stats', 'plugins.stats.plugin',
+        'plugins.rules', 'plugins.rules.plugin',
+    ],
     hookspath=[],
     hooksconfig={{}},
     runtime_hooks=[],
