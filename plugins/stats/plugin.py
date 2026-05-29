@@ -60,6 +60,9 @@ class StatsPlugin(Plugin):
         self._connect()
         self._create_tables()
 
+        # 启动时自动备份数据库
+        self._backup_database()
+
         # 启动时自动聚合历史数据
         self._aggregate_history()
 
@@ -169,6 +172,62 @@ class StatsPlugin(Plugin):
             self.logger.info("Stats 插件: 数据表已就绪")
         except Exception as e:
             self.logger.error(f"Stats 插件: 创建表失败: {e}")
+    
+    def _backup_database(self):
+        """备份数据库（保留最近 7 天）"""
+        import shutil
+        from datetime import datetime
+        
+        if not os.path.exists(self.db_path):
+            return
+        
+        try:
+            # 备份目录
+            backup_dir = os.path.join(os.path.dirname(self.db_path), "backups")
+            os.makedirs(backup_dir, exist_ok=True)
+            
+            # 生成备份文件名
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            backup_path = os.path.join(backup_dir, f"data_{timestamp}.db")
+            
+            # 复制数据库文件
+            shutil.copy2(self.db_path, backup_path)
+            self.logger.info(f"Stats 插件: 数据库已备份到 {backup_path}")
+            
+            # 清理旧备份（保留最近 7 天）
+            self._cleanup_old_backups(backup_dir, keep_days=7)
+            
+        except Exception as e:
+            self.logger.error(f"Stats 插件: 数据库备份失败: {e}")
+    
+    def _cleanup_old_backups(self, backup_dir: str, keep_days: int = 7):
+        """清理旧备份文件"""
+        import glob
+        from datetime import datetime, timedelta
+        
+        try:
+            # 获取所有备份文件
+            backup_files = glob.glob(os.path.join(backup_dir, "data_*.db"))
+            
+            # 计算截止时间
+            cutoff_time = datetime.now() - timedelta(days=keep_days)
+            
+            for backup_file in backup_files:
+                try:
+                    # 从文件名提取时间戳
+                    filename = os.path.basename(backup_file)
+                    timestamp_str = filename.replace("data_", "").replace(".db", "")
+                    file_time = datetime.strptime(timestamp_str, "%Y%m%d_%H%M%S")
+                    
+                    # 删除过期备份
+                    if file_time < cutoff_time:
+                        os.remove(backup_file)
+                        self.logger.debug(f"Stats 插件: 已删除旧备份 {filename}")
+                except (ValueError, OSError):
+                    continue
+                    
+        except Exception as e:
+            self.logger.error(f"Stats 插件: 清理旧备份失败: {e}")
 
     def _aggregate_daily(self, target_date: datetime.date = None):
         """
@@ -770,6 +829,119 @@ class StatsPlugin(Plugin):
         except Exception as e:
             self.logger.error(f"Stats 插件: 获取最近活动失败: {e}")
             return []
+    
+    def export_to_csv(self, output_path: str = None) -> str:
+        """
+        导出统计数据到 CSV 文件
+        
+        Args:
+            output_path: 输出文件路径，默认为桌面
+        
+        Returns:
+            导出文件路径
+        """
+        import csv
+        from datetime import datetime
+        
+        if not self.conn:
+            raise Exception("数据库未连接")
+        
+        # 默认输出到桌面
+        if output_path is None:
+            desktop = os.path.join(os.path.expanduser("~"), "Desktop")
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            output_path = os.path.join(desktop, f"WindowStatus_统计_{timestamp}.csv")
+        
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute('''
+                SELECT 
+                    window_title,
+                    process_name,
+                    category,
+                    start_time,
+                    duration
+                FROM activity_log
+                ORDER BY start_time DESC
+            ''')
+            
+            rows = cursor.fetchall()
+            
+            with open(output_path, 'w', newline='', encoding='utf-8-sig') as f:
+                writer = csv.writer(f)
+                writer.writerow(['窗口标题', '进程名', '分类', '开始时间', '时长(秒)'])
+                
+                for row in rows:
+                    writer.writerow(row)
+            
+            self.logger.info(f"Stats 插件: 已导出 {len(rows)} 条记录到 {output_path}")
+            return output_path
+            
+        except Exception as e:
+            self.logger.error(f"Stats 插件: 导出失败: {e}")
+            raise
+    
+    def export_to_json(self, output_path: str = None) -> str:
+        """
+        导出统计数据到 JSON 文件
+        
+        Args:
+            output_path: 输出文件路径，默认为桌面
+        
+        Returns:
+            导出文件路径
+        """
+        import json
+        from datetime import datetime
+        
+        if not self.conn:
+            raise Exception("数据库未连接")
+        
+        # 默认输出到桌面
+        if output_path is None:
+            desktop = os.path.join(os.path.expanduser("~"), "Desktop")
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            output_path = os.path.join(desktop, f"WindowStatus_统计_{timestamp}.json")
+        
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute('''
+                SELECT 
+                    window_title,
+                    process_name,
+                    category,
+                    start_time,
+                    duration
+                FROM activity_log
+                ORDER BY start_time DESC
+            ''')
+            
+            rows = cursor.fetchall()
+            
+            data = {
+                "export_time": datetime.now().isoformat(),
+                "total_records": len(rows),
+                "records": [
+                    {
+                        "window_title": row[0],
+                        "process_name": row[1],
+                        "category": row[2],
+                        "start_time": row[3],
+                        "duration": row[4]
+                    }
+                    for row in rows
+                ]
+            }
+            
+            with open(output_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            
+            self.logger.info(f"Stats 插件: 已导出 {len(rows)} 条记录到 {output_path}")
+            return output_path
+            
+        except Exception as e:
+            self.logger.error(f"Stats 插件: 导出失败: {e}")
+            raise
     
     def close(self):
         """关闭数据库连接"""

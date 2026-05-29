@@ -176,8 +176,19 @@ class TrayPlugin(Plugin):
         stats_action = self.menu.addAction("使用统计")
         stats_action.triggered.connect(lambda: self.event_bus.emit(Events.SHOW_STATS))
         
+        # 导出统计
+        export_menu = self.menu.addMenu("导出统计")
+        export_csv_action = export_menu.addAction("导出为 CSV")
+        export_csv_action.triggered.connect(self._export_csv)
+        export_json_action = export_menu.addAction("导出为 JSON")
+        export_json_action.triggered.connect(self._export_json)
+        
         settings_action = self.menu.addAction("设置")
         settings_action.triggered.connect(lambda: self.event_bus.emit(Events.SHOW_SETTINGS))
+        
+        # 重启
+        restart_action = self.menu.addAction("重启")
+        restart_action.triggered.connect(self._restart_app)
         
         # 关于
         about_action = self.menu.addAction("关于")
@@ -313,6 +324,56 @@ class TrayPlugin(Plugin):
         """更新自启动状态"""
         if self.autostart_action:
             self.autostart_action.setChecked(enabled)
+    
+    def _restart_app(self):
+        """重启应用"""
+        import sys
+        import subprocess
+        
+        self.logger.info("Tray 插件: 正在重启应用...")
+        
+        # 获取当前可执行文件路径
+        if getattr(sys, 'frozen', False):
+            # 打包后的 exe
+            exe_path = sys.executable
+            args = [exe_path]
+        else:
+            # 开发模式
+            exe_path = sys.executable
+            args = [exe_path, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'main.py')]
+        
+        # 退出当前进程
+        from PyQt5.QtWidgets import QApplication
+        QApplication.quit()
+        
+        # 启动新进程
+        subprocess.Popen(args)
+    
+    def _export_csv(self):
+        """导出统计为 CSV"""
+        try:
+            stats_plugin = self.kernel.plugin_manager.get_plugin("stats")
+            if not stats_plugin:
+                QMessageBox.warning(None, "导出失败", "统计插件未加载")
+                return
+            
+            output_path = stats_plugin.export_to_csv()
+            QMessageBox.information(None, "导出成功", f"已导出到:\n{output_path}")
+        except Exception as e:
+            QMessageBox.critical(None, "导出失败", f"导出失败: {e}")
+    
+    def _export_json(self):
+        """导出统计为 JSON"""
+        try:
+            stats_plugin = self.kernel.plugin_manager.get_plugin("stats")
+            if not stats_plugin:
+                QMessageBox.warning(None, "导出失败", "统计插件未加载")
+                return
+            
+            output_path = stats_plugin.export_to_json()
+            QMessageBox.information(None, "导出成功", f"已导出到:\n{output_path}")
+        except Exception as e:
+            QMessageBox.critical(None, "导出失败", f"导出失败: {e}")
 
 
 # 约定：PluginClass 变量指向插件类
