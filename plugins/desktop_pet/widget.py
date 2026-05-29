@@ -9,8 +9,8 @@ from typing import Optional, Dict
 from datetime import datetime
 
 from PyQt5.QtWidgets import QWidget
-from PyQt5.QtCore import Qt, QTimer
-from PyQt5.QtGui import QPixmap, QPainter, QFont, QColor, QPainterPath, QRectF
+from PyQt5.QtCore import Qt, QTimer, QRectF
+from PyQt5.QtGui import QPixmap, QPainter, QFont, QColor, QPainterPath
 
 
 class StatusBubble(QWidget):
