@@ -359,6 +359,12 @@ class OverlayPlugin(Plugin):
         """处理分类匹配事件"""
         if self.widget and self.enabled:
             self.widget.update_display(category, icon, color, title, process_name)
+            # 广播状态数据给其他插件（如桌面宠物）
+            self.event_bus.emit(Events.OVERLAY_DATA_CHANGED,
+                               icon=icon,
+                               category=category,
+                               title=title,
+                               process_name=process_name)
 
     def _on_opacity_changed(self, opacity: float, **kwargs):
         """处理透明度变更事件"""

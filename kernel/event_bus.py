@@ -61,6 +61,7 @@ class Events:
     OVERLAY_MOVED = "overlay.moved"                        # Overlay被拖动
     OVERLAY_SHOW = "overlay.show"                          # 显示Overlay
     OVERLAY_HIDE = "overlay.hide"                          # 隐藏Overlay
+    OVERLAY_DATA_CHANGED = "overlay.data.changed"          # Overlay数据变更
 
 
 class EventBus:
