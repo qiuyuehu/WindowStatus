@@ -78,6 +78,9 @@ class DesktopPetPlugin(Plugin):
     
     def on_enable(self):
         """插件启用（始终启用）"""
+        # 隐藏原悬浮窗
+        self.event_bus.emit(Events.OVERLAY_HIDE)
+        
         # 延迟创建桌宠
         self._follow_timer.start(500)
         QTimer.singleShot(800, self._create_pet)
@@ -115,6 +118,11 @@ class DesktopPetPlugin(Plugin):
             self._initialized = False
             self._position_pet()
             self._pet_widget.show()
+            
+            # 显示气泡
+            if self._pet_widget._status_bubble:
+                self._pet_widget._status_bubble.show()
+                self.logger.info(f"气泡已显示: visible={self._pet_widget._status_bubble.isVisible()}")
             
             # 记录初始状态
             pp = self._pet_widget.pos()
@@ -164,6 +172,16 @@ class DesktopPetPlugin(Plugin):
             y = screen_bottom - pet_h - 20
         
         self._pet_widget.move(x, y)
+        
+        # 同步气泡位置（气泡在桌宠头顶上方，间距1像素）
+        if self._pet_widget._status_bubble:
+            bubble = self._pet_widget._status_bubble
+            bubble_x = x + (pet_w - bubble.width()) // 2
+            bubble_y = y - bubble.height() - 1
+            # 确保气泡不超出屏幕上边界
+            bubble_y = max(screen.top(), bubble_y)
+            bubble.move(bubble_x, bubble_y)
+            self.logger.info(f"气泡位置: ({bubble_x}, {bubble_y}), size=({bubble.width()}, {bubble.height()})")
     
     def _follow_overlay(self):
         """跟随Overlay移动（保留兼容性）"""
