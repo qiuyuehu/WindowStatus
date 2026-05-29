@@ -75,15 +75,9 @@ class SettingsPlugin(Plugin):
             categories = self.config.get_categories()
             plugins_info = self._get_plugins_info()
             current_position = self.config.get_position()
+            current_theme = self.config.get("theme", "dark")
             
-            # 从desktop_pet插件读取桌宠位置配置
-            current_pet_position = "top"  # 默认值
-            pet_plugin = self.kernel.plugin_manager.get_plugin("desktop_pet")
-            if pet_plugin:
-                pet_config = pet_plugin.get_plugin_config()
-                current_pet_position = pet_config.get("position", "top")
-
-            dialog = SettingsDialog(categories, plugins_info, current_position, current_pet_position)
+            dialog = SettingsDialog(categories, plugins_info, current_position, current_theme)
             dialog.set_on_save(self._on_save)
             dialog.exec_()
         except Exception as e:
@@ -94,7 +88,7 @@ class SettingsPlugin(Plugin):
         保存设置
 
         Args:
-            result: {"categories": {...}, "plugins": {...} or None, "position": "...", "pet_position": "..."}
+            result: {"categories": {...}, "plugins": {...} or None, "position": "...", "theme": "..."}
         """
         try:
             with self.config.batch_update():
@@ -135,13 +129,17 @@ class SettingsPlugin(Plugin):
                     if overlay_plugin and hasattr(overlay_plugin, "set_position"):
                         overlay_plugin.set_position(position)
                 
-                # 保存桌宠位置配置
-                pet_position = result.get("pet_position")
-                if pet_position:
-                    # 立即应用桌宠位置（会自动保存配置）
-                    pet_plugin = self.kernel.plugin_manager.get_plugin("desktop_pet")
-                    if pet_plugin and hasattr(pet_plugin, "set_pet_position"):
-                        pet_plugin.set_pet_position(pet_position)
+                # 保存主题配置
+                theme = result.get("theme")
+                if theme:
+                    self.config.set("theme", theme)
+                    
+                    # 立即应用主题
+                    overlay_plugin = self.kernel.plugin_manager.get_plugin("overlay")
+                    if overlay_plugin and overlay_plugin.widget:
+                        overlay_plugin.widget.theme = theme
+                        overlay_plugin.widget.update()
+                        self.logger.info(f"Settings 插件: 主题已切换为 {theme}")
 
         except Exception as e:
             self.logger.error(f"Settings 插件: 保存配置失败: {e}")

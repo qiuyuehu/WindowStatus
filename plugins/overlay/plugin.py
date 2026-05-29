@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
 """
 Overlay 插件 - 插件层
-显示当前窗口分类状态的悬浮窗
+显示当前窗口分类状态的气泡
 """
 
 from datetime import datetime
 from typing import Optional
 
-from PyQt5.QtWidgets import QWidget, QLabel, QVBoxLayout, QHBoxLayout
-from PyQt5.QtCore import Qt, QPoint, QTimer
+from PyQt5.QtWidgets import QWidget
+from PyQt5.QtCore import Qt, QPoint, QTimer, QRectF
 from PyQt5.QtGui import QPainter, QColor, QPainterPath, QFont
 
 from plugins.base import Plugin
@@ -17,10 +17,16 @@ from kernel.event_bus import Events
 
 
 class OverlayWidget(QWidget):
-    """悬浮窗控件"""
+    """气泡控件"""
 
     # 窗口标志（不包含 Qt.Tool，避免在部分 Windows 版本上鼠标事件失效）
     WINDOW_FLAGS = Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
+
+    # 气泡尺寸
+    BUBBLE_WIDTH = 260
+    BUBBLE_HEIGHT = 70
+    BUBBLE_RADIUS = 20
+    TAIL_SIZE = 10
 
     def __init__(self, config: dict, on_drag_end=None, on_close=None, on_move=None):
         super().__init__()
@@ -33,7 +39,8 @@ class OverlayWidget(QWidget):
         self.setWindowTitle("WindowStatus")
         self.setWindowFlags(self.WINDOW_FLAGS)
         self.setAttribute(Qt.WA_TranslucentBackground)
-        self.setFixedSize(320, 100)
+        # 额外空间给尾巴
+        self.setFixedSize(self.BUBBLE_WIDTH, self.BUBBLE_HEIGHT + self.TAIL_SIZE + 5)
         self.setMouseTracking(True)
 
         # 拖拽状态
@@ -47,9 +54,30 @@ class OverlayWidget(QWidget):
         self.current_title = ""
         self.current_process = ""
         self.current_start_time: Optional[datetime] = None
-
-        # 创建界面
-        self._create_ui()
+        
+        # 尾巴方向（"down" 或 "up"）
+        self.tail_direction = "down"
+        
+        # 颜色方案
+        self.THEMES = {
+            "dark": {
+                "bg": QColor(26, 26, 46, 200),
+                "title": QColor(255, 255, 255),
+                "process": QColor(160, 160, 160),
+                "duration": QColor(78, 205, 196),
+                "category": QColor(120, 120, 120),
+                "icon": QColor(255, 255, 255),
+            },
+            "light": {
+                "bg": QColor(255, 255, 255, 220),
+                "title": QColor(30, 30, 30),
+                "process": QColor(100, 100, 100),
+                "duration": QColor(0, 150, 136),
+                "category": QColor(130, 130, 130),
+                "icon": QColor(30, 30, 30),
+            }
+        }
+        self.theme = "dark"  # 默认暗色
 
         # 时长更新定时器
         self.duration_timer = QTimer()
@@ -63,66 +91,92 @@ class OverlayWidget(QWidget):
         if config.get("always_on_top", True):
             self.setWindowFlags(self.windowFlags() | Qt.WindowStaysOnTopHint)
 
-    def _create_ui(self):
-        """创建界面"""
-        layout = QHBoxLayout()
-        layout.setContentsMargins(15, 10, 15, 10)
-        layout.setSpacing(12)
-
-        # 左侧：分类图标
-        self.icon_label = QLabel(self.current_icon)
-        self.icon_label.setFont(QFont('Segoe UI Emoji', 24))
-        self.icon_label.setAlignment(Qt.AlignCenter)
-        self.icon_label.setFixedWidth(50)
-        layout.addWidget(self.icon_label)
-
-        # 右侧：文字信息
-        right_layout = QVBoxLayout()
-        right_layout.setSpacing(2)
-
-        # 分类名称
-        self.category_label = QLabel(self.current_category)
-        self.category_label.setFont(QFont('Microsoft YaHei UI', 12, QFont.Bold))
-        self.category_label.setStyleSheet("color: white;")
-        right_layout.addWidget(self.category_label)
-
-        # 窗口标题
-        self.title_label = QLabel("等待窗口切换...")
-        self.title_label.setFont(QFont('Microsoft YaHei UI', 9))
-        self.title_label.setStyleSheet("color: #b8b8b8;")
-        self.title_label.setWordWrap(True)
-        right_layout.addWidget(self.title_label)
-
-        # 进程名
-        self.process_label = QLabel("")
-        self.process_label.setFont(QFont('Microsoft YaHei UI', 8))
-        self.process_label.setStyleSheet("color: #808080;")
-        right_layout.addWidget(self.process_label)
-
-        # 使用时长
-        self.duration_label = QLabel("")
-        self.duration_label.setFont(QFont('Microsoft YaHei UI', 8))
-        self.duration_label.setStyleSheet("color: #4ECDC4;")
-        right_layout.addWidget(self.duration_label)
-
-        layout.addLayout(right_layout, 1)
-        self.setLayout(layout)
-
     def paintEvent(self, event):
-        """绘制圆角背景"""
+        """绘制气泡（圆角矩形 + 尾巴）"""
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
 
+        # 气泡主体区域
+        if self.tail_direction == "down":
+            bubble_rect = QRectF(0, 0, self.BUBBLE_WIDTH, self.BUBBLE_HEIGHT)
+        else:
+            bubble_rect = QRectF(0, self.TAIL_SIZE + 5, self.BUBBLE_WIDTH, self.BUBBLE_HEIGHT)
+
+        # 绘制气泡路径
         path = QPainterPath()
-        path.addRoundedRect(5, 5, self.width() - 10, self.height() - 10, 15, 15)
+        path.addRoundedRect(bubble_rect, self.BUBBLE_RADIUS, self.BUBBLE_RADIUS)
 
-        painter.fillPath(path, QColor(26, 26, 46, 220))
+        # 绘制尾巴（最右边圆角处）
+        tail_x = self.BUBBLE_WIDTH - self.BUBBLE_RADIUS  # 右边圆角处
+        tail_path = QPainterPath()
+        
+        if self.tail_direction == "down":
+            # 尾巴朝下
+            tail_y = self.BUBBLE_HEIGHT
+            tail_path.moveTo(tail_x - self.TAIL_SIZE / 2, tail_y)
+            tail_path.lineTo(tail_x, tail_y + self.TAIL_SIZE)
+            tail_path.lineTo(tail_x + self.TAIL_SIZE / 2, tail_y)
+        else:
+            # 尾巴朝上
+            tail_y = self.TAIL_SIZE + 5
+            tail_path.moveTo(tail_x - self.TAIL_SIZE / 2, tail_y)
+            tail_path.lineTo(tail_x, tail_y - self.TAIL_SIZE)
+            tail_path.lineTo(tail_x + self.TAIL_SIZE / 2, tail_y)
+        
+        tail_path.closeSubpath()
 
-        pen = painter.pen()
-        pen.setColor(self.current_color)
-        pen.setWidth(2)
-        painter.setPen(pen)
-        painter.drawPath(path)
+        # 合并路径
+        full_path = path.united(tail_path)
+
+        # 获取当前主题颜色
+        colors = self.THEMES.get(self.theme, self.THEMES["dark"])
+
+        # 填充背景
+        painter.fillPath(full_path, colors["bg"])
+
+        # 不画边框，纯填充
+
+        # 绘制文字内容（根据尾巴方向调整偏移）
+        margin_left = 15
+        if self.tail_direction == "down":
+            margin_top = 10
+        else:
+            margin_top = self.TAIL_SIZE + 5 + 10
+        content_width = self.BUBBLE_WIDTH - margin_left * 2
+
+        # 第一行：图标 + 标题
+        icon_x = margin_left
+        icon_y = margin_top + 16
+        painter.setFont(QFont('Segoe UI Emoji', 14))
+        painter.setPen(colors["icon"])
+        painter.drawText(QRectF(icon_x, icon_y - 14, 20, 18), Qt.AlignCenter, self.current_icon)
+
+        title_x = icon_x + 24
+        title_y = icon_y
+        painter.setFont(QFont('Microsoft YaHei UI', 10, QFont.Bold))
+        painter.setPen(colors["title"])
+        title_text = truncate_text(self.current_title, 18)
+        painter.drawText(QRectF(title_x, title_y - 14, content_width - 24, 18), Qt.AlignLeft | Qt.AlignVCenter, title_text)
+
+        # 第二行：进程名 + 时长
+        process_y = title_y + 18
+        painter.setFont(QFont('Microsoft YaHei UI', 8))
+        painter.setPen(colors["process"])
+        process_text = truncate_text(self.current_process, 12)
+        painter.drawText(QRectF(margin_left, process_y - 10, 80, 14), Qt.AlignLeft | Qt.AlignVCenter, process_text)
+
+        # 时长
+        if self.current_start_time:
+            duration = int((datetime.now() - self.current_start_time).total_seconds())
+            duration_text = format_duration(duration)
+            painter.setPen(colors["duration"])
+            painter.drawText(QRectF(margin_left + 85, process_y - 10, 60, 14), Qt.AlignRight | Qt.AlignVCenter, duration_text)
+
+        # 第三行：分类标签
+        category_y = process_y + 16
+        painter.setFont(QFont('Microsoft YaHei UI', 8))
+        painter.setPen(colors["category"])
+        painter.drawText(QRectF(margin_left, category_y - 10, content_width, 14), Qt.AlignLeft | Qt.AlignVCenter, self.current_category)
 
     # ---- 拖拽实现 ----
 
@@ -134,7 +188,16 @@ class OverlayWidget(QWidget):
 
     def mouseMoveEvent(self, event):
         if self._dragging and (event.buttons() & Qt.LeftButton):
-            self.move(event.globalPos() - self._drag_offset)
+            new_pos = event.globalPos() - self._drag_offset
+            
+            # 屏幕边界检测
+            from PyQt5.QtWidgets import QDesktopWidget
+            screen = QDesktopWidget().availableGeometry()
+            
+            x = max(screen.left(), min(new_pos.x(), screen.right() - self.width()))
+            y = max(screen.top(), min(new_pos.y(), screen.bottom() - self.height()))
+            
+            self.move(x, y)
             event.accept()
 
     def mouseReleaseEvent(self, event):
@@ -170,19 +233,14 @@ class OverlayWidget(QWidget):
         self.current_process = process_name
         self.current_start_time = datetime.now()
 
-        # 更新界面
-        self.icon_label.setText(icon)
-        self.category_label.setText(category)
-        self.title_label.setText(truncate_text(title, 25))
-        self.process_label.setText(process_name)
-
+        # 触发重绘
         self.update()
 
     def _update_duration(self):
         """更新使用时长显示"""
         if self.current_start_time:
-            duration = int((datetime.now() - self.current_start_time).total_seconds())
-            self.duration_label.setText(f"⏱ {format_duration(duration)}")
+            # 触发重绘（时长在 paintEvent 中绘制）
+            self.update()
 
     # ---- 属性设置 ----
 
@@ -280,6 +338,10 @@ class OverlayPlugin(Plugin):
                 on_close=self._on_widget_close,
                 on_move=self._on_overlay_realtime_move
             )
+
+            # 加载保存的主题配置
+            saved_theme = self.config.get("theme", "dark")
+            self.widget.theme = saved_theme
 
             # 应用启动位置
             self._apply_position()

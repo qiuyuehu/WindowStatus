@@ -52,7 +52,7 @@ class AboutDialog(QDialog):
         layout.addWidget(title)
 
         # 版本
-        version = QLabel("v3.1.0")
+        version = QLabel("v3.3.0")
         version.setFont(QFont("Microsoft YaHei UI", 12))
         version.setAlignment(Qt.AlignCenter)
         version.setStyleSheet("color: #4ECDC4;")
