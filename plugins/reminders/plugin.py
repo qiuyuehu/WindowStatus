@@ -5,7 +5,7 @@ Reminders 插件 - 插件层
 """
 
 from datetime import datetime
-from typing import Optional, Dict
+from typing import Optional
 
 from PyQt5.QtCore import QTimer
 
@@ -42,6 +42,10 @@ class RemindersPlugin(Plugin):
         self._triggered_intervals: set = set()  # 已触发的 (category, interval) 避免重复
         self._check_timer: Optional[QTimer] = None
         self._active_msg_box = None  # 保持弹窗引用，防止被垃圾回收
+        
+        # 空闲状态
+        self._is_idle = False
+        self._idle_start_time: Optional[datetime] = None
 
     def on_load(self):
         """插件加载"""
@@ -49,6 +53,8 @@ class RemindersPlugin(Plugin):
 
         # 注册事件
         self.event_bus.on(Events.CATEGORY_MATCHED, self._on_category_matched)
+        self.event_bus.on(Events.IDLE_DETECTED, self._on_idle_detected)
+        self.event_bus.on(Events.IDLE_RESUMED, self._on_idle_resumed)
 
         # 每 30 秒检查一次
         self._check_timer = QTimer()
@@ -60,6 +66,8 @@ class RemindersPlugin(Plugin):
     def on_unload(self):
         """插件卸载"""
         self.event_bus.off(Events.CATEGORY_MATCHED, self._on_category_matched)
+        self.event_bus.off(Events.IDLE_DETECTED, self._on_idle_detected)
+        self.event_bus.off(Events.IDLE_RESUMED, self._on_idle_resumed)
 
         if self._check_timer:
             self._check_timer.stop()
@@ -78,10 +86,32 @@ class RemindersPlugin(Plugin):
 
     def _on_category_matched(self, category: str, **kwargs):
         """分类变化时重置计时"""
+        if self._is_idle:
+            return  # 空闲时不更新分类
         if category != self._current_category:
             self._current_category = category
             self._category_start = datetime.now()
             self._triggered_intervals.clear()
+
+    def _on_idle_detected(self, **kwargs):
+        """用户空闲时暂停计时"""
+        if self._is_idle:
+            return
+        self._is_idle = True
+        self._idle_start_time = datetime.now()
+        self.logger.info("Reminders 插件: 用户空闲，暂停提醒计时")
+
+    def _on_idle_resumed(self, **kwargs):
+        """用户回来时恢复计时"""
+        if not self._is_idle:
+            return
+        self._is_idle = False
+        # 重置分类开始时间，避免空闲时间被计入
+        if self._category_start and self._idle_start_time:
+            idle_duration = (datetime.now() - self._idle_start_time).total_seconds()
+            self._category_start = datetime.now()  # 重新开始计时
+            self.logger.info(f"Reminders 插件: 用户回来，空闲了 {idle_duration:.0f} 秒，重置提醒计时")
+        self._idle_start_time = None
 
     def _check_reminders(self):
         """检查是否需要提醒"""

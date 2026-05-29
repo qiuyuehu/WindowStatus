@@ -74,12 +74,21 @@ for f in ['main.py', 'icon.ico', 'icon.svg']:
 print("[5/6] Building...")
 pyinstaller = os.path.join(build_env, "Scripts", "pyinstaller.exe")
 
-# 收集所有 Python 文件
-py_files = []
+# 收集所有需要打包的数据文件（素材等）
+datas_entries = []
 for root, dirs, files in os.walk(temp_build):
     for file in files:
-        if file.endswith('.py'):
-            py_files.append(os.path.join(root, file))
+        if not file.endswith('.py'):
+            # 计算相对路径，保持目录结构
+            rel_dir = os.path.relpath(root, temp_build)
+            src_path = os.path.join(root, file)
+            if rel_dir == '.':
+                dst_dir = '.'
+            else:
+                dst_dir = rel_dir
+            datas_entries.append(f"    ('{src_path.replace(os.sep, '/')}', '{dst_dir.replace(os.sep, '/')}'),")
+
+datas_str = '\n'.join(datas_entries) if datas_entries else ''
 
 # 使用 spec 文件打包
 spec_content = f"""# -*- mode: python ; coding: utf-8 -*-
@@ -90,7 +99,9 @@ a = Analysis(
     ['main.py'],
     pathex=['{temp_build}'],
     binaries=[],
-    datas=[],
+    datas=[
+{datas_str}
+    ],
     hiddenimports=[
         'sqlite3', 'psutil', 'win32gui', 'win32process', 'win32con', 'PyQt5.sip',
         'kernel', 'kernel.event_bus', 'kernel.plugin_manager', 'kernel.config', 'kernel.core',
@@ -103,6 +114,8 @@ a = Analysis(
         'plugins.about', 'plugins.about.plugin',
         'plugins.settings', 'plugins.settings.plugin', 'plugins.settings.dialog',
         'plugins.reminders', 'plugins.reminders.plugin',
+        'plugins.desktop_pet', 'plugins.desktop_pet.plugin',
+        'plugins.desktop_pet.widget', 'plugins.desktop_pet.state_machine',
     ],
     hookspath=[],
     hooksconfig={{}},

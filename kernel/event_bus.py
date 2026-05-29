@@ -13,10 +13,25 @@ logger = logging.getLogger("WindowStatus.event_bus")
 
 
 class Events:
-    """事件类型常量"""
+    """
+    事件类型常量
+    
+    所有事件名称都定义在这里，插件应该使用这些常量而不是硬编码字符串。
+    
+    使用方法：
+        from kernel.event_bus import Events
+        
+        # 注册事件
+        self.event_bus.on(Events.WINDOW_CHANGED, self._handler)
+        
+        # 发送事件
+        self.event_bus.emit(Events.WINDOW_CHANGED, window_info=...)
+    """
     
     # 窗口事件
     WINDOW_CHANGED = "window.changed"      # 窗口切换
+    IDLE_DETECTED = "idle.detected"        # 用户空闲
+    IDLE_RESUMED = "idle.resumed"          # 用户回来
     
     # 分类事件
     CATEGORY_MATCHED = "category.matched"  # 分类匹配完成
@@ -40,6 +55,12 @@ class Events:
     SHOW_SETTINGS = "show.settings"        # 显示设置
     SHOW_ABOUT = "show.about"              # 显示关于
     QUIT = "quit"                          # 退出应用
+    
+    # Overlay事件
+    OVERLAY_POSITION_CHANGED = "overlay.position.changed"  # Overlay位置变更
+    OVERLAY_MOVED = "overlay.moved"                        # Overlay被拖动
+    OVERLAY_SHOW = "overlay.show"                          # 显示Overlay
+    OVERLAY_HIDE = "overlay.hide"                          # 隐藏Overlay
 
 
 class EventBus:
@@ -49,28 +70,55 @@ class EventBus:
     支持两种事件发送方式：
     1. emit() - 同步发送，在调用线程执行
     2. emit_to_main() - 发送到主线程执行（用于 GUI 插件）
+    
+    线程安全：
+    - 所有公共方法都使用锁保护
+    - emit_to_main() 确保 GUI 操作在主线程执行
+    
+    使用方法：
+        # 注册事件
+        event_bus.on(Events.WINDOW_CHANGED, self._on_window_changed)
+        
+        # 注销事件
+        event_bus.off(Events.WINDOW_CHANGED, self._on_window_changed)
+        
+        # 发送事件
+        event_bus.emit(Events.WINDOW_CHANGED, window_info=window_info)
+        
+        # 发送到主线程（GUI 插件使用）
+        event_bus.emit_to_main(Events.CATEGORY_MATCHED, category="游戏")
     """
     
-    def __init__(self):
+    def __init__(self) -> None:
         self._handlers: Dict[str, List[Callable]] = {}
         self._main_thread: Optional[threading.Thread] = None
         self._qt_app = None  # QApplication 实例，用于跨线程调用
         self._lock = threading.Lock()
     
-    def set_main_thread(self, thread: threading.Thread):
-        """设置主线程引用"""
+    def set_main_thread(self, thread: threading.Thread) -> None:
+        """
+        设置主线程引用
+        
+        Args:
+            thread: 主线程对象
+        """
         self._main_thread = thread
     
-    def set_qt_app(self, app):
-        """设置 QApplication 实例"""
+    def set_qt_app(self, app: Any) -> None:
+        """
+        设置 QApplication 实例
+        
+        Args:
+            app: QApplication 实例
+        """
         self._qt_app = app
     
-    def on(self, event: str, handler: Callable):
+    def on(self, event: str, handler: Callable) -> None:
         """
         注册事件监听器
         
         Args:
-            event: 事件名称
+            event: 事件名称（建议使用 Events 类中的常量）
             handler: 事件处理函数
         """
         with self._lock:
@@ -79,7 +127,7 @@ class EventBus:
             if handler not in self._handlers[event]:
                 self._handlers[event].append(handler)
     
-    def off(self, event: str, handler: Callable):
+    def off(self, event: str, handler: Callable) -> None:
         """
         注销事件监听器
         
@@ -94,20 +142,25 @@ class EventBus:
                 except ValueError:
                     pass
     
-    def off_all(self, event: str):
-        """注销事件的所有监听器"""
+    def off_all(self, event: str) -> None:
+        """
+        注销事件的所有监听器
+        
+        Args:
+            event: 事件名称
+        """
         with self._lock:
             self._handlers.pop(event, None)
     
-    def off_all_handlers(self):
+    def off_all_handlers(self) -> None:
         """注销所有事件的所有监听器"""
         with self._lock:
             self._handlers.clear()
     
-    def emit(self, event: str, **kwargs):
+    def emit(self, event: str, **kwargs: Any) -> None:
         """
         同步发送事件，在调用线程执行
-
+        
         Args:
             event: 事件名称
             **kwargs: 事件参数
@@ -132,7 +185,7 @@ class EventBus:
                     f"handler={handler_name}, error={e}"
                 )
     
-    def emit_to_main(self, event: str, **kwargs):
+    def emit_to_main(self, event: str, **kwargs: Any) -> None:
         """
         发送事件到主线程执行（用于 GUI 插件）
         
@@ -143,8 +196,6 @@ class EventBus:
             event: 事件名称
             **kwargs: 事件参数
         """
-        import threading
-        
         current_thread = threading.current_thread()
         
         # 如果没有设置主线程，或者当前就是主线程，直接执行
@@ -162,11 +213,27 @@ class EventBus:
             self.emit(event, **kwargs)
     
     def has_handlers(self, event: str) -> bool:
-        """检查事件是否有监听器"""
+        """
+        检查事件是否有监听器
+        
+        Args:
+            event: 事件名称
+            
+        Returns:
+            是否有监听器
+        """
         with self._lock:
             return event in self._handlers and len(self._handlers[event]) > 0
     
     def get_handler_count(self, event: str) -> int:
-        """获取事件的监听器数量"""
+        """
+        获取事件的监听器数量
+        
+        Args:
+            event: 事件名称
+            
+        Returns:
+            监听器数量
+        """
         with self._lock:
             return len(self._handlers.get(event, []))

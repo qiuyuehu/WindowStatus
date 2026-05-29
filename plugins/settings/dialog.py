@@ -465,10 +465,16 @@ class GeneralTab(QWidget):
         ("bottom-right", "右下角"),
         ("custom", "自定义（手动拖拽后自动切换）"),
     ]
+    
+    PET_POSITIONS = [
+        ("top", "上方"),
+        ("bottom", "下方"),
+    ]
 
-    def __init__(self, current_position: str = "top-right", parent=None):
+    def __init__(self, current_position: str = "top-right", current_pet_position: str = "left", parent=None):
         super().__init__(parent)
         self._current_position = current_position
+        self._current_pet_position = current_pet_position
         self._init_ui()
 
     def _init_ui(self):
@@ -510,12 +516,52 @@ class GeneralTab(QWidget):
             }
         """)
         layout.addWidget(self.position_combo)
+        
+        # 桌宠位置
+        layout.addSpacing(20)
+        
+        pet_group_label = QLabel("桌宠位置")
+        pet_group_label.setStyleSheet("color: white; font-weight: bold; font-size: 13px;")
+        layout.addWidget(pet_group_label)
+
+        pet_hint = QLabel("选择桌宠显示在悬浮窗的哪个方向。")
+        pet_hint.setWordWrap(True)
+        pet_hint.setStyleSheet("color: #808080; font-size: 12px;")
+        layout.addWidget(pet_hint)
+
+        self.pet_position_combo = QComboBox()
+        for value, label in self.PET_POSITIONS:
+            self.pet_position_combo.addItem(label, value)
+            if value == self._current_pet_position:
+                self.pet_position_combo.setCurrentIndex(self.pet_position_combo.count() - 1)
+        self.pet_position_combo.setStyleSheet("""
+            QComboBox {
+                background-color: #16213e;
+                color: white;
+                border: 1px solid #0f3460;
+                padding: 6px 10px;
+                border-radius: 4px;
+                min-width: 200px;
+            }
+            QComboBox::drop-down {
+                border: none;
+            }
+            QComboBox QAbstractItemView {
+                background-color: #16213e;
+                color: white;
+                selection-background-color: #0f3460;
+            }
+        """)
+        layout.addWidget(self.pet_position_combo)
 
         layout.addStretch()
         self.setLayout(layout)
 
     def get_position(self) -> str:
         return self.position_combo.currentData()
+    
+    def get_pet_position(self) -> str:
+        return self.pet_position_combo.currentData()
 
 
 # ============================================================
@@ -534,6 +580,7 @@ class SettingsDialog(QDialog):
     def __init__(self, categories: Dict[str, dict],
                  plugins_info: Optional[List[dict]] = None,
                  current_position: str = "top-right",
+                 current_pet_position: str = "left",
                  parent=None):
         super().__init__(parent)
         self.setWindowTitle("WindowStatus 设置")
@@ -554,7 +601,7 @@ class SettingsDialog(QDialog):
         # 标签页
         tabs = QTabWidget()
 
-        self.general_tab = GeneralTab(current_position)
+        self.general_tab = GeneralTab(current_position, current_pet_position)
         tabs.addTab(self.general_tab, "通用")
 
         self.categories_tab = CategoriesTab(categories)
@@ -600,7 +647,8 @@ class SettingsDialog(QDialog):
         result = {
             "categories": self.categories_tab.get_categories(),
             "plugins": self.plugins_tab.get_plugins_config() if self.plugins_tab else None,
-            "position": self.general_tab.get_position()
+            "position": self.general_tab.get_position(),
+            "pet_position": self.general_tab.get_pet_position()
         }
         if self._on_save_callback:
             self._on_save_callback(result)

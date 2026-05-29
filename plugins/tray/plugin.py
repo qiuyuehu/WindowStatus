@@ -4,6 +4,7 @@ Tray 插件 - 插件层
 系统托盘图标和菜单
 """
 
+import os
 from typing import Optional
 
 from PyQt5.QtWidgets import QSystemTrayIcon, QMenu, QAction, QMessageBox
@@ -76,15 +77,29 @@ class TrayPlugin(Plugin):
         try:
             self.tray = QSystemTrayIcon()
             
-            # 创建图标
-            pixmap = QPixmap(32, 32)
-            pixmap.fill(QColor(78, 205, 196))
-            painter = QPainter(pixmap)
-            painter.setPen(QColor(255, 255, 255))
-            painter.setFont(QFont('Arial', 16, QFont.Bold))
-            painter.drawText(pixmap.rect(), Qt.AlignCenter, "W")
-            painter.end()
-            self.tray.setIcon(QIcon(pixmap))
+            # 使用应用图标文件
+            import sys
+            if getattr(sys, 'frozen', False):
+                base_dir = os.path.dirname(sys.executable)
+            else:
+                base_dir = os.path.dirname(os.path.abspath(__file__))
+                # 开发模式：图标在项目根目录（plugins/tray/ 上两级）
+                base_dir = os.path.dirname(os.path.dirname(base_dir))
+            
+            icon_path = os.path.join(base_dir, 'icon.ico')
+            if os.path.exists(icon_path):
+                self.tray.setIcon(QIcon(icon_path))
+            else:
+                # 回退：用程序绘制的图标
+                pixmap = QPixmap(32, 32)
+                pixmap.fill(QColor(78, 205, 196))
+                painter = QPainter(pixmap)
+                painter.setPen(QColor(255, 255, 255))
+                painter.setFont(QFont('Arial', 16, QFont.Bold))
+                painter.drawText(pixmap.rect(), Qt.AlignCenter, "W")
+                painter.end()
+                self.tray.setIcon(QIcon(pixmap))
+            
             self.tray.setToolTip("WindowStatus - 窗口状态显示器")
             
             # 创建菜单
@@ -95,6 +110,7 @@ class TrayPlugin(Plugin):
         
         except Exception as e:
             self.logger.error(f"Tray 插件: 创建系统托盘失败: {e}")
+            self.tray = None  # 清理不完整对象，防止后续调用出错
     
     def _destroy_tray(self):
         """销毁系统托盘"""
@@ -122,10 +138,10 @@ class TrayPlugin(Plugin):
         
         # 显示/隐藏
         show_action = self.menu.addAction("显示悬浮窗")
-        show_action.triggered.connect(lambda: self.event_bus.emit("overlay.show"))
+        show_action.triggered.connect(lambda: self.event_bus.emit(Events.OVERLAY_SHOW))
         
         hide_action = self.menu.addAction("隐藏悬浮窗")
-        hide_action.triggered.connect(lambda: self.event_bus.emit("overlay.hide"))
+        hide_action.triggered.connect(lambda: self.event_bus.emit(Events.OVERLAY_HIDE))
         
         self.menu.addSeparator()
         
@@ -143,6 +159,16 @@ class TrayPlugin(Plugin):
             action.triggered.connect(
                 lambda checked, v=value: self._set_opacity(v / 100)
             )
+        
+        self.menu.addSeparator()
+        
+        # 关闭时最小化到托盘
+        self.minimize_to_tray_action = self.menu.addAction("关闭时最小化到托盘")
+        self.minimize_to_tray_action.setCheckable(True)
+        self.minimize_to_tray_action.setChecked(self.config.is_minimize_to_tray())
+        self.minimize_to_tray_action.triggered.connect(
+            lambda checked: self._toggle_minimize_to_tray(checked)
+        )
         
         self.menu.addSeparator()
         
@@ -199,40 +225,45 @@ class TrayPlugin(Plugin):
         
         self.logger.info(f"Tray 插件: 透明度: {opacity}")
     
+    def _toggle_minimize_to_tray(self, checked: bool):
+        """切换关闭时最小化到托盘"""
+        self.config.set_minimize_to_tray(checked)
+        self.logger.info(f"Tray 插件: 关闭时最小化到托盘: {checked}")
+    
     def _toggle_autostart(self, checked: bool):
         """切换开机自启动"""
         try:
             import sys
             import os
             import winreg
-            
+
             key = winreg.OpenKey(
                 winreg.HKEY_CURRENT_USER,
                 r"Software\Microsoft\Windows\CurrentVersion\Run",
                 0, winreg.KEY_SET_VALUE
             )
-            
-            if checked:
-                if getattr(sys, 'frozen', False):
-                    app_path = sys.executable
+            try:
+                if checked:
+                    if getattr(sys, 'frozen', False):
+                        app_path = sys.executable
+                    else:
+                        app_path = f'"{sys.executable}" "{os.path.abspath(__file__)}"'
+
+                    winreg.SetValueEx(key, "WindowStatus", 0, winreg.REG_SZ, app_path)
+                    self.logger.info("Tray 插件: 已启用开机自启动")
                 else:
-                    app_path = f'"{sys.executable}" "{os.path.abspath(__file__)}"'
-                
-                winreg.SetValueEx(key, "WindowStatus", 0, winreg.REG_SZ, app_path)
-                self.logger.info("Tray 插件: 已启用开机自启动")
-            else:
-                try:
-                    winreg.DeleteValue(key, "WindowStatus")
-                except FileNotFoundError:
-                    pass
-                self.logger.info("Tray 插件: 已禁用开机自启动")
-            
-            winreg.CloseKey(key)
-            
+                    try:
+                        winreg.DeleteValue(key, "WindowStatus")
+                    except FileNotFoundError:
+                        pass
+                    self.logger.info("Tray 插件: 已禁用开机自启动")
+            finally:
+                winreg.CloseKey(key)
+
             # 更新菜单状态
             if self.autostart_action:
                 self.autostart_action.setChecked(checked)
-        
+
         except Exception as e:
             self.logger.error(f"Tray 插件: 设置开机自启动失败: {e}")
             QMessageBox.warning(None, "错误", f"设置开机自启动失败: {e}")
@@ -247,12 +278,13 @@ class TrayPlugin(Plugin):
                 0, winreg.KEY_READ
             )
             try:
-                winreg.QueryValueEx(key, "WindowStatus")
+                try:
+                    winreg.QueryValueEx(key, "WindowStatus")
+                    return True
+                except FileNotFoundError:
+                    return False
+            finally:
                 winreg.CloseKey(key)
-                return True
-            except FileNotFoundError:
-                winreg.CloseKey(key)
-                return False
         except Exception:
             return False
     

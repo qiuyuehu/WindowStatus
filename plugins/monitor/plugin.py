@@ -1,14 +1,23 @@
 # -*- coding: utf-8 -*-
 """
 Monitor 插件 - 插件层
-负责监控当前活动窗口，检测窗口切换事件
+负责监控当前活动窗口，检测窗口切换事件和用户空闲状态
 """
 
-import threading
-from typing import Optional, Callable
+import ctypes
+import ctypes.wintypes
+from typing import Optional
 
 from plugins.base import Plugin
 from kernel.event_bus import Events
+
+
+class LASTINPUTINFO(ctypes.Structure):
+    """Windows LASTINPUTINFO 结构体"""
+    _fields_ = [
+        ("cbSize", ctypes.wintypes.UINT),
+        ("dwTime", ctypes.wintypes.DWORD),
+    ]
 
 
 class WindowInfo:
@@ -25,8 +34,30 @@ class WindowInfo:
             return self.title == other.title and self.process_name == other.process_name
         return False
     
+    def __hash__(self):
+        return hash((self.title, self.process_name))
+    
     def __str__(self):
         return f"WindowInfo(title='{self.title}', process='{self.process_name}')"
+
+
+def get_idle_seconds() -> float:
+    """
+    获取用户空闲时间（秒）
+    
+    使用 Windows API GetLastInputInfo 检测最后一次用户输入的时间。
+    
+    Returns:
+        空闲秒数
+    """
+    lii = LASTINPUTINFO()
+    lii.cbSize = ctypes.sizeof(LASTINPUTINFO)
+    
+    if ctypes.windll.user32.GetLastInputInfo(ctypes.byref(lii)):
+        millis = ctypes.windll.kernel32.GetTickCount() - lii.dwTime
+        return millis / 1000.0
+    
+    return 0.0
 
 
 class MonitorPlugin(Plugin):
@@ -36,12 +67,16 @@ class MonitorPlugin(Plugin):
     职责：
     - 监控当前活动窗口
     - 检测窗口切换事件
-    - 通过事件总线发送 WINDOW_CHANGED 事件
+    - 检测用户空闲状态
+    - 通过事件总线发送事件
     """
     
     name = "monitor"
-    version = "1.0.0"
-    description = "窗口监控插件，检测活动窗口切换"
+    version = "1.1.0"
+    description = "窗口监控插件，检测活动窗口切换和用户空闲状态"
+    
+    # 空闲阈值（秒）：超过这个时间认为用户空闲
+    IDLE_THRESHOLD = 60
     
     def __init__(self, kernel):
         super().__init__(kernel)
@@ -49,6 +84,11 @@ class MonitorPlugin(Plugin):
         self._last_window: Optional[WindowInfo] = None
         self._running = False
         self._timer = None
+        
+        # 空闲状态
+        self._is_idle = False
+        self._idle_check_counter = 0
+        self._idle_check_interval = 10  # 每 10 次窗口检查（约 1 秒）检查一次 idle
         
         # 导入 Windows API（延迟导入，避免在非 Windows 环境报错）
         self._win32gui = None
@@ -120,15 +160,26 @@ class MonitorPlugin(Plugin):
             self._timer.stop()
             self._timer = None
         
+        # 如果当前是空闲状态，发送恢复事件
+        if self._is_idle:
+            self._is_idle = False
+            self.event_bus.emit(Events.IDLE_RESUMED)
+        
         self.logger.info("Monitor 插件: 窗口监控已停止")
     
     def _check_window_change(self):
-        """检查窗口切换"""
+        """检查窗口切换和空闲状态"""
         if not self.enabled:
             return
         
         try:
             current_window = self._get_active_window()
+            
+            # 检查空闲状态
+            self._idle_check_counter += 1
+            if self._idle_check_counter >= self._idle_check_interval:
+                self._idle_check_counter = 0
+                self._check_idle()
             
             if self._last_window is None or current_window != self._last_window:
                 # 窗口切换
@@ -144,6 +195,22 @@ class MonitorPlugin(Plugin):
         
         except Exception as e:
             self.logger.error(f"Monitor 插件: 检查窗口切换失败: {e}")
+    
+    def _check_idle(self):
+        """检查用户空闲状态"""
+        idle_seconds = get_idle_seconds()
+        
+        if not self._is_idle and idle_seconds >= self.IDLE_THRESHOLD:
+            # 用户变为空闲
+            self._is_idle = True
+            self.event_bus.emit(Events.IDLE_DETECTED, idle_seconds=idle_seconds)
+            self.logger.info(f"Monitor 插件: 用户空闲 {idle_seconds:.0f} 秒")
+        
+        elif self._is_idle and idle_seconds < self.IDLE_THRESHOLD:
+            # 用户回来了
+            self._is_idle = False
+            self.event_bus.emit(Events.IDLE_RESUMED)
+            self.logger.info("Monitor 插件: 用户回来")
     
     def _get_active_window(self) -> WindowInfo:
         """获取当前活动窗口信息"""
@@ -172,6 +239,10 @@ class MonitorPlugin(Plugin):
     def get_last_window(self) -> Optional[WindowInfo]:
         """获取上一个窗口信息"""
         return self._last_window
+    
+    def is_idle(self) -> bool:
+        """检查用户是否空闲"""
+        return self._is_idle
     
     def reset(self):
         """重置监控器状态"""

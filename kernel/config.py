@@ -6,6 +6,7 @@
 
 import json
 import os
+import copy
 import logging
 from typing import Dict, Any, Optional, List
 from contextlib import contextmanager
@@ -182,6 +183,7 @@ DEFAULT_CONFIG = {
     "opacity": 0.9,
     "always_on_top": True,
     "position": "top-right",
+    "minimize_to_tray": True,
     "categories": DEFAULT_CATEGORIES,
     "plugins": {
         "monitor": True,
@@ -191,7 +193,8 @@ DEFAULT_CONFIG = {
         "rules": True,
         "about": True,
         "settings": True,
-        "reminders": True
+        "reminders": True,
+        "desktop_pet": False
     },
     "reminders": {
         "游戏": {"enabled": True, "interval_minutes": 60, "message": "已经连续玩了 {minutes} 分钟，该活动活动了！"},
@@ -247,11 +250,11 @@ class Config:
                 self._merge_defaults()
                 # 迁移旧版本配置
                 self._migrate_config()
-            except Exception as e:
+            except (json.JSONDecodeError, IOError, OSError) as e:
                 logger.error(f"加载配置失败: {e}")
-                self._config = DEFAULT_CONFIG.copy()
+                self._config = copy.deepcopy(DEFAULT_CONFIG)
         else:
-            self._config = DEFAULT_CONFIG.copy()
+            self._config = copy.deepcopy(DEFAULT_CONFIG)
             self.save()
     
     def _merge_defaults(self):
@@ -391,6 +394,15 @@ class Config:
     def set_position(self, position: str):
         """设置启动位置"""
         self._config["position"] = position
+        self.save()
+    
+    def is_minimize_to_tray(self) -> bool:
+        """关闭时是否最小化到托盘"""
+        return self._config.get("minimize_to_tray", True)
+    
+    def set_minimize_to_tray(self, enabled: bool):
+        """设置关闭时最小化到托盘"""
+        self._config["minimize_to_tray"] = enabled
         self.save()
     
     def is_plugin_enabled(self, plugin_name: str) -> bool:

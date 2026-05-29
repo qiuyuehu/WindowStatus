@@ -22,10 +22,12 @@ class OverlayWidget(QWidget):
     # 窗口标志（不包含 Qt.Tool，避免在部分 Windows 版本上鼠标事件失效）
     WINDOW_FLAGS = Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
 
-    def __init__(self, config: dict, on_drag_end=None):
+    def __init__(self, config: dict, on_drag_end=None, on_close=None, on_move=None):
         super().__init__()
         self.config = config
         self._on_drag_end = on_drag_end  # 拖拽结束回调
+        self._on_close = on_close  # 关闭事件回调
+        self._on_move = on_move  # 实时移动回调（拖拽中持续触发）
 
         # 窗口设置
         self.setWindowTitle("WindowStatus")
@@ -144,6 +146,19 @@ class OverlayWidget(QWidget):
                     self._on_drag_end()
             event.accept()
 
+    def moveEvent(self, event):
+        """窗口移动时实时通知外部（拖拽过程中持续触发）"""
+        super().moveEvent(event)
+        if self._on_move:
+            self._on_move()
+
+    def closeEvent(self, event):
+        """关闭事件：委托给外部处理（用于最小化到托盘）"""
+        if self._on_close:
+            self._on_close(event)
+        else:
+            event.accept()
+
     # ---- 显示更新 ----
 
     def update_display(self, category: str, icon: str, color: tuple, title: str, process_name: str):
@@ -207,6 +222,7 @@ class OverlayPlugin(Plugin):
     def __init__(self, kernel):
         super().__init__(kernel)
         self.widget: Optional[OverlayWidget] = None
+        self._force_quit = False
 
     def on_load(self):
         """插件加载"""
@@ -219,6 +235,9 @@ class OverlayPlugin(Plugin):
         self.event_bus.on(Events.CATEGORY_MATCHED, self._on_category_matched)
         self.event_bus.on(Events.OPACITY_CHANGED, self._on_opacity_changed)
         self.event_bus.on(Events.TOGGLE_TOP, self._on_toggle_top)
+        self.event_bus.on(Events.OVERLAY_SHOW, self._on_overlay_show)
+        self.event_bus.on(Events.OVERLAY_HIDE, self._on_overlay_hide)
+        self.event_bus.on(Events.QUIT, self._on_quit)
 
         self.logger.info("Overlay 插件已加载")
 
@@ -227,6 +246,9 @@ class OverlayPlugin(Plugin):
         self.event_bus.off(Events.CATEGORY_MATCHED, self._on_category_matched)
         self.event_bus.off(Events.OPACITY_CHANGED, self._on_opacity_changed)
         self.event_bus.off(Events.TOGGLE_TOP, self._on_toggle_top)
+        self.event_bus.off(Events.OVERLAY_SHOW, self._on_overlay_show)
+        self.event_bus.off(Events.OVERLAY_HIDE, self._on_overlay_hide)
+        self.event_bus.off(Events.QUIT, self._on_quit)
 
         if self.widget:
             self.widget.close()
@@ -254,7 +276,9 @@ class OverlayPlugin(Plugin):
                     "opacity": self.config.get_opacity(),
                     "always_on_top": self.config.is_always_on_top()
                 },
-                on_drag_end=self._on_user_dragged
+                on_drag_end=self._on_user_dragged,
+                on_close=self._on_widget_close,
+                on_move=self._on_overlay_realtime_move
             )
 
             # 应用启动位置
@@ -262,7 +286,7 @@ class OverlayPlugin(Plugin):
 
             self.widget.show()
             self.logger.info("Overlay 插件: 悬浮窗已创建")
-        except Exception as e:
+        except (RuntimeError, OSError) as e:
             self.logger.error(f"Overlay 插件: 创建悬浮窗失败: {e}")
 
     def _apply_position(self):
@@ -293,11 +317,43 @@ class OverlayPlugin(Plugin):
         """设置位置并应用"""
         self.config.set_position(position)
         self._apply_position()
+        
+        # 通知其他插件Overlay位置变化
+        if self.widget:
+            self.event_bus.emit(
+                Events.OVERLAY_POSITION_CHANGED,
+                position=position,
+                x=self.widget.pos().x(),
+                y=self.widget.pos().y(),
+                width=self.widget.width(),
+                height=self.widget.height()
+            )
 
     def _on_user_dragged(self):
         """用户手动拖拽后，切换为自定义位置"""
         self.config.set_position("custom")
         self.logger.debug("Overlay 插件: 用户拖拽，位置切换为自定义")
+        
+        # 通知其他插件Overlay被拖动
+        if self.widget:
+            self.event_bus.emit(
+                Events.OVERLAY_MOVED,
+                x=self.widget.pos().x(),
+                y=self.widget.pos().y(),
+                width=self.widget.width(),
+                height=self.widget.height()
+            )
+    
+    def _on_overlay_realtime_move(self):
+        """实时移动通知（拖拽过程中持续触发，不写磁盘）"""
+        if self.widget:
+            self.event_bus.emit(
+                Events.OVERLAY_MOVED,
+                x=self.widget.pos().x(),
+                y=self.widget.pos().y(),
+                width=self.widget.width(),
+                height=self.widget.height()
+            )
 
     def _on_category_matched(self, category: str, icon: str, color: tuple, title: str, process_name: str, **kwargs):
         """处理分类匹配事件"""
@@ -314,15 +370,56 @@ class OverlayPlugin(Plugin):
         if self.widget:
             self.widget.set_always_on_top(enabled)
 
+    def _on_overlay_show(self, **kwargs):
+        """处理显示Overlay事件"""
+        self.show()
+
+    def _on_overlay_hide(self, **kwargs):
+        """处理隐藏Overlay事件"""
+        self.hide()
+
+    def _on_widget_close(self, event):
+        """处理悬浮窗关闭事件（最小化到托盘或真正关闭）"""
+        if self._force_quit:
+            # 真正退出
+            event.accept()
+            return
+        if self.config.is_minimize_to_tray():
+            # 最小化到托盘
+            if self.widget:
+                self.hide()
+            event.ignore()
+            self.logger.info("Overlay 插件: 已隐藏到托盘")
+        else:
+            # 正常关闭
+            event.accept()
+
+    def _on_quit(self, **kwargs):
+        """处理退出事件：强制关闭悬浮窗"""
+        self._force_quit = True
+        if self.widget:
+            self.widget.close()
+
     def show(self):
         """显示悬浮窗"""
         if self.widget:
             self.widget.show()
+            self._win32_set_visible(True)
 
     def hide(self):
         """隐藏悬浮窗"""
         if self.widget:
             self.widget.hide()
+            self._win32_set_visible(False)
+
+    def _win32_set_visible(self, visible: bool):
+        """Win32 API 控制窗口显隐（解决 Win11 任务栏残留问题）"""
+        try:
+            import ctypes
+            hwnd = int(self.widget.winId())
+            ctypes.windll.user32.ShowWindow(hwnd, 5 if visible else 0)
+        except OSError:
+            pass
 
 
 # 约定：PluginClass 变量指向插件类

@@ -40,6 +40,10 @@ class StatsPlugin(Plugin):
         self._current_category: Optional[str] = None
         self._current_start_time: Optional[datetime] = None
         
+        # 空闲状态
+        self._is_idle = False
+        self._idle_start_time: Optional[datetime] = None
+        
         # 统计弹窗引用（防止被垃圾回收）
         self._active_dialog = None
     
@@ -61,6 +65,8 @@ class StatsPlugin(Plugin):
 
         # 注册事件监听
         self.event_bus.on(Events.CATEGORY_MATCHED, self._on_category_matched)
+        self.event_bus.on(Events.IDLE_DETECTED, self._on_idle_detected)
+        self.event_bus.on(Events.IDLE_RESUMED, self._on_idle_resumed)
         self.event_bus.on(Events.QUIT, self._on_quit)
 
         self.logger.info(f"Stats 插件已加载，数据库: {self.db_path}")
@@ -69,6 +75,8 @@ class StatsPlugin(Plugin):
         """插件卸载"""
         # 注销事件监听
         self.event_bus.off(Events.CATEGORY_MATCHED, self._on_category_matched)
+        self.event_bus.off(Events.IDLE_DETECTED, self._on_idle_detected)
+        self.event_bus.off(Events.IDLE_RESUMED, self._on_idle_resumed)
         self.event_bus.off(Events.QUIT, self._on_quit)
         
         # 记录最后一个活动
@@ -438,7 +446,7 @@ class StatsPlugin(Plugin):
     
     def _on_category_matched(self, **kwargs):
         """处理分类匹配事件"""
-        if not self.enabled:
+        if not self.enabled or self._is_idle:
             return
         
         # 记录上一个活动
@@ -451,6 +459,35 @@ class StatsPlugin(Plugin):
         self._current_start_time = datetime.now()
         
         self.logger.debug(f"Stats 插件: 开始记录 [{self._current_category}] {self._current_title[:30]}")
+    
+    def _on_idle_detected(self, **kwargs):
+        """用户空闲时暂停统计"""
+        if not self.enabled or self._is_idle:
+            return
+        
+        self._is_idle = True
+        self._idle_start_time = datetime.now()
+        
+        # 记录当前活动（截止到空闲开始）
+        self._record_current_activity()
+        
+        idle_seconds = kwargs.get('idle_seconds', 0)
+        self.logger.info(f"Stats 插件: 用户空闲 {idle_seconds:.0f} 秒，暂停统计")
+    
+    def _on_idle_resumed(self, **kwargs):
+        """用户回来时恢复统计"""
+        if not self.enabled or not self._is_idle:
+            return
+        
+        self._is_idle = False
+        
+        # 记录空闲时长（可选：单独记录空闲时间）
+        if self._idle_start_time:
+            idle_duration = int((datetime.now() - self._idle_start_time).total_seconds())
+            self.logger.info(f"Stats 插件: 用户回来，空闲了 {idle_duration} 秒")
+        
+        self._idle_start_time = None
+        # 注意：当前窗口的统计会在下次 CATEGORY_MATCHED 事件时重新开始
     
     def _on_quit(self, **kwargs):
         """处理退出事件"""

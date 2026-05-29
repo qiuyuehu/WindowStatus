@@ -27,6 +27,7 @@ _fix_qt_plugin_path()
 # === 修复结束 ===
 
 from PyQt5.QtWidgets import QApplication, QMessageBox
+from PyQt5.QtGui import QIcon
 
 from kernel.core import Kernel
 from kernel.event_bus import Events
@@ -37,6 +38,20 @@ CONFIG_DIR = os.path.join(os.path.expanduser('~'), '.WindowStatus')
 CONFIG_FILE = os.path.join(CONFIG_DIR, 'config.json')
 DB_FILE = os.path.join(CONFIG_DIR, 'data.db')
 LOG_FILE = os.path.join(CONFIG_DIR, 'window_status.log')
+
+
+def _get_icon_path() -> str:
+    """获取图标文件路径（兼容开发模式和打包模式）"""
+    if getattr(sys, 'frozen', False):
+        # 打包模式：图标在 exe 同目录
+        base_dir = os.path.dirname(sys.executable)
+    else:
+        # 开发模式：图标在项目根目录
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+    icon_path = os.path.join(base_dir, 'icon.ico')
+    if os.path.exists(icon_path):
+        return icon_path
+    return ''
 
 
 class WindowStatusApp:
@@ -54,9 +69,30 @@ class WindowStatusApp:
         self.app = QApplication(sys.argv)
         self.app.setQuitOnLastWindowClosed(False)
         
+        # 设置应用图标（所有窗口继承）
+        icon_path = _get_icon_path()
+        if icon_path:
+            self.app.setWindowIcon(QIcon(icon_path))
+        
         # 初始化 Kernel
-        self.kernel = Kernel(CONFIG_FILE, DB_FILE, LOG_FILE)
-        self.kernel.set_qt_app(self.app)
+        try:
+            self.kernel = Kernel(CONFIG_FILE, DB_FILE, LOG_FILE)
+            self.kernel.set_qt_app(self.app)
+        except Exception as e:
+            # Kernel 初始化失败，使用 fallback 日志（kernel.logger 尚不存在）
+            import logging
+            import traceback
+            _fallback_log = logging.getLogger("WindowStatus")
+            _fallback_log.error(f"Kernel 初始化失败: {e}\n{traceback.format_exc()}")
+            QMessageBox.critical(
+                None,
+                "WindowStatus 启动错误",
+                f"程序初始化失败，无法继续运行。\n\n"
+                f"错误信息: {e}\n\n"
+                f"请检查配置文件是否损坏，或磁盘空间是否充足。\n"
+                f"配置目录: {CONFIG_DIR}"
+            )
+            raise
         
         # 注册应用级事件处理
         self._register_app_events()
@@ -115,8 +151,12 @@ class WindowStatusApp:
 
 def main():
     """主函数"""
-    app = WindowStatusApp()
-    sys.exit(app.start())
+    try:
+        app = WindowStatusApp()
+        sys.exit(app.start())
+    except Exception:
+        # QMessageBox 已在 WindowStatusApp.__init__ 中显示，直接退出
+        sys.exit(1)
 
 
 if __name__ == '__main__':

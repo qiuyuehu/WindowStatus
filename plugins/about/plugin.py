@@ -38,11 +38,12 @@ class AboutDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("关于 WindowStatus")
-        self.setFixedSize(400, 300)
+        self.setFixedSize(420, 340)
         self.setStyleSheet(self.STYLESHEET)
 
         layout = QVBoxLayout()
-        layout.setSpacing(15)
+        layout.setSpacing(12)
+        layout.setContentsMargins(30, 20, 30, 20)
 
         # 标题
         title = QLabel("WindowStatus")
@@ -116,12 +117,16 @@ class AboutPlugin(Plugin):
     def on_load(self):
         """插件加载"""
         self.logger = self.kernel.logger
+        self._dialog = None
         self.event_bus.on(Events.SHOW_ABOUT, self._on_show_about)
         self.logger.info("About 插件已加载")
 
     def on_unload(self):
         """插件卸载"""
         self.event_bus.off(Events.SHOW_ABOUT, self._on_show_about)
+        if self._dialog is not None:
+            self._dialog.close()
+            self._dialog = None
         self.logger.info("About 插件已卸载")
 
     def on_enable(self):
@@ -135,9 +140,18 @@ class AboutPlugin(Plugin):
     def _on_show_about(self, **kwargs):
         """显示关于窗口"""
         try:
-            dialog = AboutDialog()
-            dialog.exec_()
+            # 防重复弹出：如果对话框已存在，则提升并激活
+            if self._dialog is not None:
+                self._dialog.raise_()
+                self._dialog.activateWindow()
+                return
+
+            parent = getattr(self.kernel, 'main_window', None)
+            self._dialog = AboutDialog(parent=parent)
+            self._dialog.exec_()
+            self._dialog = None
         except Exception as e:
+            self._dialog = None
             self.logger.error(f"About 插件: 显示关于窗口失败: {e}")
 
 

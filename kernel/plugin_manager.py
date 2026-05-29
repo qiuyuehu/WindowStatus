@@ -89,6 +89,7 @@ class PluginManager:
             'plugins.about.plugin',
             'plugins.settings.plugin',
             'plugins.reminders.plugin',
+            'plugins.desktop_pet.plugin',
         ]
         
         # 确保 plugins 包可用
@@ -353,13 +354,75 @@ class PluginManager:
         # 先发现插件
         self.discover_plugins()
         
+        # 按依赖顺序排序插件
+        sorted_plugins = self._sort_plugins_by_dependency()
+        
         # 加载插件
-        for name, plugin_class in self._plugin_classes.items():
+        for name in sorted_plugins:
+            plugin_class = self._plugin_classes.get(name)
+            if plugin_class is None:
+                continue
+            
             # 检查是否在启用列表中
             if enabled_plugins is not None and name not in enabled_plugins:
                 continue
             
-            self.load_plugin(plugin_class)
+            # 检查依赖是否已加载
+            if not self._check_dependencies(plugin_class):
+                self._log('warning', f'PluginManager: 插件 [{name}] 的依赖未满足，跳过加载')
+                continue
+            
+            plugin = self.load_plugin(plugin_class)
+            
+            # 加载成功后，调用 on_enable
+            if plugin is not None:
+                plugin.enabled = True
+                try:
+                    plugin.on_enable()
+                except Exception as e:
+                    self._log('error', f'PluginManager: 启用插件失败 [{name}]: {e}')
+    
+    def _sort_plugins_by_dependency(self) -> List[str]:
+        """按依赖顺序排序插件（拓扑排序）"""
+        # 构建依赖图
+        graph = {}
+        for name, plugin_class in self._plugin_classes.items():
+            dependencies = getattr(plugin_class, 'dependencies', [])
+            graph[name] = dependencies
+        
+        # 拓扑排序
+        sorted_plugins = []
+        visited = set()
+        visiting = set()
+        
+        def dfs(node):
+            if node in visiting:
+                # 循环依赖
+                self._log('error', f'PluginManager: 检测到循环依赖 [{node}]')
+                return
+            if node in visited:
+                return
+            
+            visiting.add(node)
+            for dep in graph.get(node, []):
+                if dep in self._plugin_classes:
+                    dfs(dep)
+            visiting.remove(node)
+            visited.add(node)
+            sorted_plugins.append(node)
+        
+        for name in graph:
+            dfs(name)
+        
+        return sorted_plugins
+    
+    def _check_dependencies(self, plugin_class) -> bool:
+        """检查插件的依赖是否已加载"""
+        dependencies = getattr(plugin_class, 'dependencies', [])
+        for dep in dependencies:
+            if dep not in self._plugins:
+                return False
+        return True
     
     def unload_all(self):
         """卸载所有插件"""
