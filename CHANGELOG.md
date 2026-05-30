@@ -1,5 +1,32 @@
 # 更新日志
 
+## v3.3.2 (2026-05-30)
+
+### 新功能
+- **桌宠拖拽**：长按桌宠 200ms 进入拖拽模式，拖拽时同步气泡位置，支持屏幕边界检测
+- **进程内重启**：重启功能改为进程内重载（Events.RESTART），不再使用 os.execv/subprocess
+
+### 优化
+- **长按延迟**：桌宠长按触发时间从 300ms 降低到 200ms，手感更流畅
+- **状态保护**：长按/拖拽中禁止分类事件切换桌宠状态，避免状态闪烁
+
+### 删除
+- **气泡拖拽**：删除气泡拖拽功能及相关代码（OVERLAY_MOVED 事件、鼠标事件、长按定时器等）
+- **临时测试脚本**：删除 test_v3.py、test_stats_data.py
+
+### 文件变更
+```
+plugins/desktop_pet/widget.py   # 桌宠拖拽（长按、鼠标事件、边界检测）
+plugins/desktop_pet/plugin.py   # 拖拽回调、反向定位气泡
+plugins/overlay/plugin.py       # 删除气泡拖拽相关代码
+kernel/event_bus.py             # 新增 RESTART 事件，删除 OVERLAY_MOVED
+kernel/config.py                # 新增 reload() 方法
+main.py                         # 进程内重启逻辑
+plugins/tray/plugin.py          # 重启改为发 RESTART 事件
+```
+
+---
+
 ## v3.3.1 (2026-05-30)
 
 ### 优化
