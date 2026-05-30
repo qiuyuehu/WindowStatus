@@ -75,6 +75,22 @@ DEFAULT_CATEGORIES = {
             {"type": "title", "pattern": "*夸克*"},
             {"type": "process", "pattern": "UURemote.exe"},
             {"type": "title", "pattern": "*UU远程*"},
+            # 浏览器标题细分：办公类网站
+            {"type": "title", "pattern": "*Google Docs*"},
+            {"type": "title", "pattern": "*Google Sheets*"},
+            {"type": "title", "pattern": "*Google Slides*"},
+            {"type": "title", "pattern": "*腾讯文档*"},
+            {"type": "title", "pattern": "*Notion*"},
+            {"type": "title", "pattern": "*飞书文档*"},
+            {"type": "title", "pattern": "*语雀*"},
+            {"type": "title", "pattern": "*Confluence*"},
+            {"type": "title", "pattern": "*Jira*"},
+            {"type": "title", "pattern": "*DeepSeek*"},
+            {"type": "title", "pattern": "*AI Studio*"},
+            {"type": "title", "pattern": "*Gemini*"},
+            {"type": "title", "pattern": "*超星*"},
+            {"type": "title", "pattern": "*学习通*"},
+            {"type": "title", "pattern": "*豆包*"},
         ]
     },
     "摸鱼": {
@@ -105,7 +121,9 @@ DEFAULT_CATEGORIES = {
             {"type": "title", "pattern": "*网易云音乐*"},
             {"type": "title", "pattern": "*QQ音乐*"},
             {"type": "process", "pattern": "doubao.exe"},
-            {"type": "title", "pattern": "*豆包*"},
+            {"type": "title", "pattern": "*Discord*"},
+            {"type": "title", "pattern": "*起点*"},
+            {"type": "title", "pattern": "*Apple Music*"},
         ]
     },
     "开发": {
@@ -145,6 +163,18 @@ DEFAULT_CATEGORIES = {
             {"type": "process", "pattern": "redis-server.exe"},
             {"type": "process", "pattern": "Docker Desktop.exe"},
             {"type": "process", "pattern": "docker.exe"},
+            # 浏览器标题细分：开发类网站
+            {"type": "title", "pattern": "*GitHub*"},
+            {"type": "title", "pattern": "*Stack Overflow*"},
+            {"type": "title", "pattern": "*localhost*"},
+            {"type": "title", "pattern": "*MDN Web Docs*"},
+            {"type": "title", "pattern": "*npm*"},
+            {"type": "title", "pattern": "*PyPI*"},
+            {"type": "title", "pattern": "*Docker Hub*"},
+            {"type": "title", "pattern": "*Vercel*"},
+            {"type": "title", "pattern": "*Netlify*"},
+            {"type": "title", "pattern": "*Hugging Face*"},
+            {"type": "title", "pattern": "*/*: *"},
         ]
     },
     "工具": {
@@ -253,6 +283,8 @@ class Config:
                     self._merge_defaults()
                     # 迁移旧版本配置
                     self._migrate_config()
+                    # 合并后保存，持久化新增规则
+                    self.save()
                 except (json.JSONDecodeError, IOError, OSError) as e:
                     logger.error(f"加载配置失败: {e}")
                     self._config = copy.deepcopy(DEFAULT_CONFIG)
@@ -265,7 +297,7 @@ class Config:
         self.load()
     
     def _merge_defaults(self):
-        """合并默认配置"""
+        """合并默认配置（支持三层嵌套：categories -> 分类 -> rules 列表追加）"""
         for key, value in DEFAULT_CONFIG.items():
             if key not in self._config:
                 self._config[key] = value
@@ -273,6 +305,21 @@ class Config:
                 for k, v in value.items():
                     if k not in self._config[key]:
                         self._config[key][k] = v
+                    elif key == "categories" and isinstance(v, dict) and isinstance(self._config[key][k], dict):
+                        # 分类内部合并：icon/color 保留用户值，rules 追加新增规则
+                        user_cat = self._config[key][k]
+                        for cat_key, cat_val in v.items():
+                            if cat_key not in user_cat:
+                                user_cat[cat_key] = cat_val
+                            elif cat_key == "rules" and isinstance(cat_val, list):
+                                # rules 列表：追加用户没有的规则（按 pattern 去重）
+                                user_patterns = {
+                                    r.get("pattern") for r in user_cat[cat_key]
+                                    if isinstance(r, dict)
+                                }
+                                for rule in cat_val:
+                                    if rule.get("pattern") not in user_patterns:
+                                        user_cat[cat_key].append(rule)
     
     def _migrate_config(self):
         """迁移旧版本配置"""

@@ -12,6 +12,45 @@ v3.0 - 完整插件化架构
 import sys
 import os
 
+# === 全局异常钩子：未捕获异常自动写入日志 ===
+def _setup_excepthook():
+    """将未捕获的异常记录到日志文件"""
+    import logging
+    
+    # 确定日志路径
+    log_dir = os.path.join(os.path.expanduser('~'), '.WindowStatus')
+    os.makedirs(log_dir, exist_ok=True)
+    log_file = os.path.join(log_dir, 'window_status.log')
+    
+    # 配置 fallback logger（在 Kernel 初始化前也能用）
+    _fallback_logger = logging.getLogger("WindowStatus.crash")
+    _handler = logging.FileHandler(log_file, encoding='utf-8')
+    _handler.setFormatter(logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    ))
+    _fallback_logger.addHandler(_handler)
+    
+    import traceback
+    
+    def _excepthook(exc_type, exc_value, exc_tb):
+        """全局异常钩子：将未捕获异常写入日志"""
+        if exc_type is KeyboardInterrupt:
+            # Ctrl+C 正常退出，不记录
+            sys.__excepthook__(exc_type, exc_value, exc_tb)
+            return
+        
+        _fallback_logger.error(
+            "未捕获的异常:\n%s",
+            ''.join(traceback.format_exception(exc_type, exc_value, exc_tb))
+        )
+        # 也调用原始钩子（控制台输出）
+        sys.__excepthook__(exc_type, exc_value, exc_tb)
+    
+    sys.excepthook = _excepthook
+
+_setup_excepthook()
+# === 全局异常钩子结束 ===
+
 # === 修复 Qt 平台插件路径 ===
 # PyQt5 有时找不到自己的 plugins 目录，手动指定
 def _fix_qt_plugin_path():

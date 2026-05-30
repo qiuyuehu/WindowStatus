@@ -6,7 +6,7 @@ Monitor 插件 - 插件层
 
 import ctypes
 import ctypes.wintypes
-from typing import Optional
+from typing import Dict, Optional
 
 from plugins.base import Plugin
 from kernel.event_bus import Events
@@ -88,7 +88,12 @@ class MonitorPlugin(Plugin):
         # 空闲状态
         self._is_idle = False
         self._idle_check_counter = 0
-        self._idle_check_interval = 10  # 每 10 次窗口检查（约 1 秒）检查一次 idle
+        self._idle_check_interval = 10  # 每 10 次窗口检查（约 2 秒）检查一次 idle
+        
+        # 进程名缓存：pid → process_name，避免每次 psutil 查询
+        self._process_cache: Dict[int, str] = {}
+        self._cache_counter = 0  # 用于定期清理过期缓存
+        self._cache_cleanup_interval = 300  # 每 300 次查询清理一次（约 60 秒）
         
         # 导入 Windows API（延迟导入，避免在非 Windows 环境报错）
         self._win32gui = None
@@ -145,7 +150,7 @@ class MonitorPlugin(Plugin):
         from PyQt5.QtCore import QTimer
         self._timer = QTimer()
         self._timer.timeout.connect(self._check_window_change)
-        self._timer.start(100)  # 100ms 检查一次
+        self._timer.start(200)  # 200ms 检查一次（100→200，CPU 占用减半）
         
         self.logger.info("Monitor 插件: 窗口监控已启动")
     
@@ -213,18 +218,30 @@ class MonitorPlugin(Plugin):
             self.logger.info("Monitor 插件: 用户回来")
     
     def _get_active_window(self) -> WindowInfo:
-        """获取当前活动窗口信息"""
+        """获取当前活动窗口信息（带进程名缓存）"""
         try:
             hwnd = self._win32gui.GetForegroundWindow()
             title = self._win32gui.GetWindowText(hwnd)
             
             _, pid = self._win32process.GetWindowThreadProcessId(hwnd)
             
-            try:
-                process = self._psutil.Process(pid)
-                process_name = process.name()
-            except (self._psutil.NoSuchProcess, self._psutil.AccessDenied):
-                process_name = ""
+            # 使用缓存避免重复 psutil 查询
+            process_name = self._process_cache.get(pid)
+            if process_name is None:
+                try:
+                    process = self._psutil.Process(pid)
+                    process_name = process.name()
+                    self._process_cache[pid] = process_name
+                except (self._psutil.NoSuchProcess, self._psutil.AccessDenied):
+                    process_name = ""
+                    # 进程不存在时清掉缓存
+                    self._process_cache.pop(pid, None)
+            
+            # 定期清理过期缓存（避免内存泄漏）
+            self._cache_counter += 1
+            if self._cache_counter >= self._cache_cleanup_interval:
+                self._cache_counter = 0
+                self._cleanup_process_cache()
             
             return WindowInfo(
                 title=title,
@@ -235,6 +252,18 @@ class MonitorPlugin(Plugin):
         except Exception as e:
             # 发生异常时返回空窗口信息
             return WindowInfo(title="", process_name="")
+    
+    def _cleanup_process_cache(self):
+        """清理过期的进程名缓存"""
+        import psutil
+        stale_pids = []
+        for pid in self._process_cache:
+            if not psutil.pid_exists(pid):
+                stale_pids.append(pid)
+        for pid in stale_pids:
+            del self._process_cache[pid]
+        if stale_pids:
+            self.logger.debug(f"Monitor 插件: 清理 {len(stale_pids)} 个过期缓存")
     
     def get_last_window(self) -> Optional[WindowInfo]:
         """获取上一个窗口信息"""

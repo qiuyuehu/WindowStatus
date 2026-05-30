@@ -93,8 +93,8 @@ class RulesPlugin(Plugin):
                 
                 if rule_type == "process":
                     # 进程名规则：按进程名建索引
-                    # 将通配符模式转换为精确匹配的键
-                    key = pattern.lower().replace("*", "").replace("?", "")
+                    # 提取核心名称（去掉 .exe 和通配符），和 classify 的 process_key 一致
+                    key = pattern.lower().replace(".exe", "").replace(".", "").replace("*", "").replace("?", "")
                     if key:  # 非空模式才建索引
                         if key not in self._process_index:
                             self._process_index[key] = []
@@ -132,9 +132,12 @@ class RulesPlugin(Plugin):
         """处理规则重新加载事件"""
         self.reload_rules()
     
+    # 浏览器进程名列表：匹配到这些进程时，优先用标题规则细分
+    BROWSER_PROCESSES = {"chrome", "msedge", "firefox", "flashbrowser"}
+    
     def classify(self, title: str, process_name: str) -> ClassificationResult:
         """
-        分类窗口（优化版本：使用索引）
+        分类窗口（优化版本：使用索引 + 浏览器标题细分）
         
         Args:
             title: 窗口标题
@@ -155,6 +158,11 @@ class RulesPlugin(Plugin):
                 # 验证是否真的匹配（处理通配符）
                 for rule in category_info.get("rules", []):
                     if rule.get("type") == "process" and fnmatch.fnmatch(process_lower, rule.get("pattern", "").lower()):
+                        # 浏览器标题细分：如果进程名是浏览器，优先用标题规则匹配
+                        if process_key in self.BROWSER_PROCESSES:
+                            title_result = self._match_title_rules(title)
+                            if title_result:
+                                return title_result
                         return ClassificationResult(
                             category=category_name,
                             icon=category_info.get("icon", "💻"),
@@ -163,14 +171,9 @@ class RulesPlugin(Plugin):
                         )
         
         # 2. 匹配标题规则
-        for category_name, category_info, rule in self._title_rules:
-            if fnmatch.fnmatch(title, rule.get("pattern", "")):
-                return ClassificationResult(
-                    category=category_name,
-                    icon=category_info.get("icon", "💻"),
-                    color=tuple(category_info.get("color", [149, 165, 166])),
-                    matched_rule=f"title:{rule['pattern']}"
-                )
+        title_result = self._match_title_rules(title)
+        if title_result:
+            return title_result
         
         # 3. 遍历剩余的进程名规则（索引未覆盖的）
         for category_name, category_info in self._categories.items():
@@ -192,6 +195,26 @@ class RulesPlugin(Plugin):
             icon="💻",
             color=(149, 165, 166)
         )
+    
+    def _match_title_rules(self, title: str):
+        """
+        匹配标题规则
+        
+        Args:
+            title: 窗口标题
+        
+        Returns:
+            ClassificationResult 或 None
+        """
+        for category_name, category_info, rule in self._title_rules:
+            if fnmatch.fnmatch(title, rule.get("pattern", "")):
+                return ClassificationResult(
+                    category=category_name,
+                    icon=category_info.get("icon", "💻"),
+                    color=tuple(category_info.get("color", [149, 165, 166])),
+                    matched_rule=f"title:{rule['pattern']}"
+                )
+        return None
     
     def reload_rules(self):
         """重新加载规则"""

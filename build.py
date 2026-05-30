@@ -38,22 +38,22 @@ build_env = r"C:\BuildEnv"
 temp_build = r"C:\TempBuild"
 project_dir = os.path.dirname(os.path.abspath(__file__))
 
-# Clean
+# 清理
 print("[1/6] Cleaning...")
 for d in [build_env, temp_build]:
     if os.path.exists(d):
         shutil.rmtree(d)
 
-# Create venv
+# 创建虚拟环境
 print("[2/6] Creating virtual environment...")
 subprocess.run([python_path, "-m", "venv", build_env], check=True)
 
-# Install deps
+# 安装依赖
 print("[3/6] Installing dependencies...")
 pip = os.path.join(build_env, "Scripts", "pip.exe")
 subprocess.run([pip, "install", "PyQt5", "psutil", "pywin32", "pyinstaller", "-q"], check=True)
 
-# Copy files
+# 复制文件
 print("[4/6] Copying project files...")
 os.makedirs(temp_build)
 
@@ -70,7 +70,7 @@ for f in ['main.py', 'icon.ico', 'icon.svg']:
     if os.path.exists(src):
         shutil.copy2(src, temp_build)
 
-# Build
+# 构建
 print("[5/6] Building...")
 pyinstaller = os.path.join(build_env, "Scripts", "pyinstaller.exe")
 
@@ -156,7 +156,7 @@ with open(spec_file, 'w', encoding='utf-8') as f:
 # 执行打包
 subprocess.run([pyinstaller, spec_file], cwd=temp_build, check=True)
 
-# Copy result
+# 复制结果
 exe_path = os.path.join(temp_build, "dist", "WindowStatus.exe")
 if os.path.exists(exe_path):
     print("[6/6] Copying exe...")
@@ -172,7 +172,7 @@ else:
     print("Build failed!")
     print("=" * 50)
 
-# Cleanup
+# 清理
 print("Cleaning up...")
 for d in [build_env, temp_build]:
     if os.path.exists(d):
