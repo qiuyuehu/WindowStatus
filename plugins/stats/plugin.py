@@ -49,7 +49,7 @@ class StatsPlugin(Plugin):
     
     def on_load(self):
         """插件加载"""
-        self.logger = self.kernel.logger
+        
 
         # 确保目录存在
         db_dir = os.path.dirname(self.db_path)

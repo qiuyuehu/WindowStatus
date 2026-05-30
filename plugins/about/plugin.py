@@ -35,7 +35,7 @@ class AboutDialog(QDialog):
         }
     """
 
-    def __init__(self, parent=None):
+    def __init__(self, version: str = "v3.3.0", parent=None):
         super().__init__(parent)
         self.setWindowTitle("关于 WindowStatus")
         self.setFixedSize(420, 340)
@@ -52,11 +52,11 @@ class AboutDialog(QDialog):
         layout.addWidget(title)
 
         # 版本
-        version = QLabel("v3.3.0")
-        version.setFont(QFont("Microsoft YaHei UI", 12))
-        version.setAlignment(Qt.AlignCenter)
-        version.setStyleSheet("color: #4ECDC4;")
-        layout.addWidget(version)
+        version_label = QLabel(version)
+        version_label.setFont(QFont("Microsoft YaHei UI", 12))
+        version_label.setAlignment(Qt.AlignCenter)
+        version_label.setStyleSheet("color: #4ECDC4;")
+        layout.addWidget(version_label)
 
         # 描述
         desc = QLabel(
@@ -116,7 +116,7 @@ class AboutPlugin(Plugin):
 
     def on_load(self):
         """插件加载"""
-        self.logger = self.kernel.logger
+        
         self._dialog = None
         self.event_bus.on(Events.SHOW_ABOUT, self._on_show_about)
         self.logger.info("About 插件已加载")
@@ -146,8 +146,13 @@ class AboutPlugin(Plugin):
                 self._dialog.activateWindow()
                 return
 
-            parent = getattr(self.kernel, 'main_window', None)
-            self._dialog = AboutDialog(parent=parent)
+            # 从配置读取版本号
+            version = self.config.get("version", "v3.3.0")
+            if not version.startswith("v"):
+                version = f"v{version}"
+            
+            parent = self.main_window
+            self._dialog = AboutDialog(version=version, parent=parent)
             self._dialog.exec_()
             self._dialog = None
         except Exception as e:

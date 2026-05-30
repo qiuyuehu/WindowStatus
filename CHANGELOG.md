@@ -7,11 +7,33 @@
 - **小气泡连接**：删除尾巴（三角形），改用小气泡（半径3px）连接大气泡和桌宠
 - **屏幕边界扩展**：右边+20px、下方+20px余量，下方可无视任务栏
 - **简化桌宠定位**：删除桌宠独立边界检测，完全由气泡侧统一约束
+- **删除预设位置功能**：设置页面不再提供上下左右位置选项，完全由用户手动拖拽定位
+
+### 架构修复
+- **Config 线程安全**：所有公开方法加 `threading.RLock()`，防止多线程竞态条件
+- **关闭顺序优化**：`unload_all()` 先清空所有事件监听再卸载插件，避免事件到达已卸载的 handler
+- **God Object 重构**：`self.kernel` 改为 `self._kernel`（私有），提供 `get_plugin()`/`get_all_plugins()`/`main_window` 受限接口
+- **插件解耦**：settings → rules/overlay 的直接调用改为事件（`RULES_RELOAD`、`OVERLAY_SET_THEME`）
+- **代码清理**：删除死代码（`_match_rule`）、未使用的机制（`get_plugin_config`/`set_plugin_config`）、可变类默认值（`dependencies` 改为 tuple）
+- **API 迁移**：`QDesktopWidget` 改为 `QApplication.primaryScreen()`
+- **硬编码优化**：AboutDialog 版本号从 config 读取，desktop_pet 常量从 overlay widget 动态获取
 
 ### 文件变更
 ```
-plugins/overlay/plugin.py       # 整体边界检测 + 小气泡绘制
-plugins/desktop_pet/plugin.py   # 删除独立边界检测
+kernel/config.py                # 线程安全锁
+kernel/event_bus.py             # 新增 RULES_RELOAD、OVERLAY_SET_THEME 事件
+kernel/plugin_manager.py        # 关闭顺序优化
+plugins/base.py                 # 受限接口、删除未使用方法
+plugins/overlay/plugin.py       # 整体边界检测、小气泡绘制、删除预设位置
+plugins/desktop_pet/plugin.py   # 动态获取常量、删除独立边界检测
+plugins/rules/plugin.py         # 监听 RULES_RELOAD 事件、删除死代码
+plugins/settings/dialog.py      # 删除位置选择 UI
+plugins/settings/plugin.py      # 改为事件驱动
+plugins/about/plugin.py         # 版本号从 config 读取
+plugins/monitor/plugin.py       # 删除冗余 logger 赋值
+plugins/reminders/plugin.py     # 删除冗余 logger 赋值
+plugins/stats/plugin.py         # 删除冗余 logger 赋值
+plugins/tray/plugin.py          # 删除冗余 logger 赋值
 ```
 
 ---

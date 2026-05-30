@@ -426,7 +426,10 @@ class PluginManager:
     
     def unload_all(self):
         """卸载所有插件"""
-        # 复制列表，因为卸载会修改字典
+        # 先清空所有事件监听，避免卸载过程中事件到达已卸载的 handler
+        self.kernel.event_bus.off_all_handlers()
+        
+        # 再逐个卸载（禁用 + on_unload）
         plugin_names = list(self._plugins.keys())
         for name in plugin_names:
             self.unload_plugin(name)

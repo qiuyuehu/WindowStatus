@@ -456,24 +456,15 @@ class PluginsTab(QWidget):
 # ============================================================
 
 class GeneralTab(QWidget):
-    """通用设置标签页（位置等）"""
+    """通用设置标签页（主题等）"""
 
-    POSITIONS = [
-        ("top-left", "左上角"),
-        ("top-right", "右上角"),
-        ("bottom-left", "左下角"),
-        ("bottom-right", "右下角"),
-        ("custom", "自定义（手动拖拽后自动切换）"),
-    ]
-    
     THEMES = [
         ("dark", "暗色模式"),
         ("light", "亮色模式"),
     ]
 
-    def __init__(self, current_position: str = "top-right", current_theme: str = "dark", parent=None):
+    def __init__(self, current_theme: str = "dark", parent=None):
         super().__init__(parent)
-        self._current_position = current_position
         self._current_theme = current_theme
         self._init_ui()
 
@@ -482,44 +473,7 @@ class GeneralTab(QWidget):
         layout.setContentsMargins(15, 15, 15, 15)
         layout.setSpacing(16)
 
-        # 悬浮窗位置
-        pos_group_label = QLabel("悬浮窗启动位置")
-        pos_group_label.setStyleSheet("color: white; font-weight: bold; font-size: 13px;")
-        layout.addWidget(pos_group_label)
-
-        pos_hint = QLabel('选择悬浮窗启动时出现在屏幕的哪个位置。手动拖拽悬浮窗后会自动切换为"自定义"。')
-        pos_hint.setWordWrap(True)
-        pos_hint.setStyleSheet("color: #808080; font-size: 12px;")
-        layout.addWidget(pos_hint)
-
-        self.position_combo = QComboBox()
-        for value, label in self.POSITIONS:
-            self.position_combo.addItem(label, value)
-            if value == self._current_position:
-                self.position_combo.setCurrentIndex(self.position_combo.count() - 1)
-        self.position_combo.setStyleSheet("""
-            QComboBox {
-                background-color: #16213e;
-                color: white;
-                border: 1px solid #0f3460;
-                padding: 6px 10px;
-                border-radius: 4px;
-                min-width: 200px;
-            }
-            QComboBox::drop-down {
-                border: none;
-            }
-            QComboBox QAbstractItemView {
-                background-color: #16213e;
-                color: white;
-                selection-background-color: #0f3460;
-            }
-        """)
-        layout.addWidget(self.position_combo)
-        
         # 主题模式
-        layout.addSpacing(20)
-        
         theme_group_label = QLabel("主题模式")
         theme_group_label.setStyleSheet("color: white; font-weight: bold; font-size: 13px;")
         layout.addWidget(theme_group_label)
@@ -557,9 +511,6 @@ class GeneralTab(QWidget):
         layout.addStretch()
         self.setLayout(layout)
 
-    def get_position(self) -> str:
-        return self.position_combo.currentData()
-    
     def get_theme(self) -> str:
         return self.theme_combo.currentData()
 
@@ -579,7 +530,6 @@ class SettingsDialog(QDialog):
 
     def __init__(self, categories: Dict[str, dict],
                  plugins_info: Optional[List[dict]] = None,
-                 current_position: str = "top-right",
                  current_theme: str = "dark",
                  parent=None):
         super().__init__(parent)
@@ -601,7 +551,7 @@ class SettingsDialog(QDialog):
         # 标签页
         tabs = QTabWidget()
 
-        self.general_tab = GeneralTab(current_position, current_theme)
+        self.general_tab = GeneralTab(current_theme)
         tabs.addTab(self.general_tab, "通用")
 
         self.categories_tab = CategoriesTab(categories)
@@ -647,7 +597,6 @@ class SettingsDialog(QDialog):
         result = {
             "categories": self.categories_tab.get_categories(),
             "plugins": self.plugins_tab.get_plugins_config() if self.plugins_tab else None,
-            "position": self.general_tab.get_position(),
             "theme": self.general_tab.get_theme()
         }
         if self._on_save_callback:

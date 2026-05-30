@@ -48,8 +48,8 @@ class Plugin:
     version: str = "1.0.0"
     description: str = ""
     
-    # 插件依赖（子类可以覆盖）
-    dependencies: List[str] = []
+    # 插件依赖（子类可以覆盖，用 tuple 避免可变类默认值问题）
+    dependencies: tuple = ()
     
     # 插件默认配置（子类可以覆盖）
     DEFAULT_CONFIG: Dict[str, Any] = {}
@@ -61,36 +61,25 @@ class Plugin:
         Args:
             kernel: Kernel 实例，提供 event_bus、config 等核心服务
         """
-        self.kernel: 'Kernel' = kernel
+        self._kernel: 'Kernel' = kernel  # 私有，不直接暴露
         self.event_bus: 'EventBus' = kernel.event_bus
         self.config: 'Config' = kernel.config
         self.logger: 'logging.Logger' = kernel.logger
         self.enabled: bool = True
         self._loaded: bool = False
     
-    def get_plugin_config(self) -> Dict[str, Any]:
-        """
-        获取插件配置（合并默认配置）
-        
-        Returns:
-            合并后的配置字典
-        
-        使用方法：
-            config = self.get_plugin_config()
-            opacity = config.get("opacity", 1.0)
-        """
-        user_config = self.config.get(self.name, {})
-        return {**self.DEFAULT_CONFIG, **user_config}
+    def get_plugin(self, name: str):
+        """获取其他插件实例（受限接口）"""
+        return self._kernel.plugin_manager.get_plugin(name)
     
-    def set_plugin_config(self, key: str, value: Any) -> None:
-        """
-        设置插件配置项
-        
-        Args:
-            key: 配置键
-            value: 配置值
-        """
-        self.config.set(f"{self.name}.{key}", value)
+    def get_all_plugins(self) -> list:
+        """获取所有已加载的插件（受限接口）"""
+        return self._kernel.plugin_manager.get_all_plugins()
+    
+    @property
+    def main_window(self):
+        """获取主窗口（用于设置对话框父窗口）"""
+        return getattr(self._kernel, 'main_window', None)
     
     def on_load(self) -> None:
         """

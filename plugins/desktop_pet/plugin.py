@@ -27,7 +27,7 @@ class DesktopPetPlugin(Plugin):
     name = "desktop_pet"
     version = "2.0.0"
     description = "桌宠插件，附着在Overlay旁边显示状态"
-    dependencies = ["overlay"]  # 依赖overlay插件
+    dependencies = ("overlay",)  # 依赖overlay插件
     
     DEFAULT_CONFIG = {
         "enabled": False,       # 默认关闭
@@ -46,7 +46,7 @@ class DesktopPetPlugin(Plugin):
     
     def on_load(self):
         """插件加载"""
-        self.logger = self.kernel.logger
+        
         
         # 注册事件监听
         self.event_bus.on(Events.CATEGORY_MATCHED, self._on_category_matched)
@@ -123,7 +123,7 @@ class DesktopPetPlugin(Plugin):
             self._pet_widget.show()
             
             # 记录初始状态
-            overlay_plugin = self.kernel.plugin_manager.get_plugin("overlay")
+            overlay_plugin = self.get_plugin("overlay")
             if overlay_plugin and overlay_plugin.widget:
                 ow = overlay_plugin.widget
                 self.logger.info(f"桌宠初始状态: overlay pos=({ow.pos().x()}, {ow.pos().y()}), size=({ow.width()}, {ow.height()})")
@@ -150,7 +150,7 @@ class DesktopPetPlugin(Plugin):
         
         # 如果没有传入Overlay位置，尝试从overlay插件获取
         if overlay_x is None or overlay_y is None:
-            overlay_plugin = self.kernel.plugin_manager.get_plugin("overlay")
+            overlay_plugin = self.get_plugin("overlay")
             if not overlay_plugin or not overlay_plugin.widget:
                 self.logger.warning("Overlay插件未加载，桌宠显示在屏幕右下角")
                 self._pet_widget.move(100, 100)
@@ -165,8 +165,8 @@ class DesktopPetPlugin(Plugin):
             overlay_height = overlay_size.height()
         
         # 获取屏幕可用区域
-        from PyQt5.QtWidgets import QDesktopWidget
-        screen = QDesktopWidget().availableGeometry()
+        from PyQt5.QtWidgets import QApplication
+        screen = QApplication.primaryScreen().availableGeometry()
         screen_left = screen.left()
         screen_top = screen.top()
         screen_right = screen.right()
@@ -177,12 +177,24 @@ class DesktopPetPlugin(Plugin):
         pet_w = pet_size.width()
         pet_h = pet_size.height()
         
-        # 气泡尾巴尖端对准桌宠头顶
-        # 小气泡在气泡底部右下角：BUBBLE_WIDTH - 1 = 260 - 1 = 259
-        tail_x = overlay_x + 259  # 小气泡尖端的 x 坐标
+        # 从 overlay widget 动态获取常量
+        overlay_plugin = self.get_plugin("overlay")
+        overlay_widget = getattr(overlay_plugin, 'widget', None) if overlay_plugin else None
+        if overlay_widget:
+            bubble_width = overlay_widget.BUBBLE_WIDTH
+            bubble_height = overlay_widget.BUBBLE_HEIGHT
+            dot_radius = overlay_widget.DOT_RADIUS
+        else:
+            # fallback 硬编码
+            bubble_width = 260
+            bubble_height = 70
+            dot_radius = 3
+        
+        # 小气泡在气泡底部右下角
+        tail_x = overlay_x + bubble_width - 1
         
         # 桌宠在气泡下方，小气泡朝下
-        tail_y = overlay_y + 70 + 3 + 1  # 气泡主体70 + 小气泡半径3 + 1
+        tail_y = overlay_y + bubble_height + dot_radius + 1
         x = tail_x - pet_w // 2 + 8  # 向右偏移
         y = tail_y - 60  # 桌宠图片头顶大约在60像素的位置
         
@@ -265,7 +277,7 @@ class DesktopPetPlugin(Plugin):
         try:
             if self._pet_widget and self.enabled:
                 # 强制让Overlay重新计算布局后再定位
-                overlay_plugin = self.kernel.plugin_manager.get_plugin("overlay")
+                overlay_plugin = self.get_plugin("overlay")
                 if overlay_plugin and overlay_plugin.widget:
                     overlay_plugin.widget.adjustSize()
                     overlay_plugin.widget.update()

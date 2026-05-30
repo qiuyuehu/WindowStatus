@@ -164,9 +164,9 @@ class OverlayWidget(QWidget):
         if self._dragging and (event.buttons() & Qt.LeftButton):
             new_pos = event.globalPos() - self._drag_offset
             
-            # 屏幕边界检测（用 screenGeometry 包含任务栏区域）
-            from PyQt5.QtWidgets import QDesktopWidget
-            screen = QDesktopWidget().screenGeometry()
+            # 屏幕边界检测（用 geometry 包含任务栏区域）
+            from PyQt5.QtWidgets import QApplication
+            screen = QApplication.primaryScreen().geometry()
             
             x = max(screen.left(), min(new_pos.x(), screen.right() - self.width()))
             y = max(screen.top(), min(new_pos.y(), screen.bottom() - self.height()))
@@ -282,7 +282,7 @@ class OverlayPlugin(Plugin):
 
     def on_load(self):
         """插件加载"""
-        self.logger = self.kernel.logger
+        
 
         # 创建悬浮窗
         self._create_widget()
@@ -293,6 +293,7 @@ class OverlayPlugin(Plugin):
         self.event_bus.on(Events.TOGGLE_TOP, self._on_toggle_top)
         self.event_bus.on(Events.OVERLAY_SHOW, self._on_overlay_show)
         self.event_bus.on(Events.OVERLAY_HIDE, self._on_overlay_hide)
+        self.event_bus.on(Events.OVERLAY_SET_THEME, self._on_set_theme)
         self.event_bus.on(Events.QUIT, self._on_quit)
 
         self.logger.info("Overlay 插件已加载")
@@ -304,6 +305,7 @@ class OverlayPlugin(Plugin):
         self.event_bus.off(Events.TOGGLE_TOP, self._on_toggle_top)
         self.event_bus.off(Events.OVERLAY_SHOW, self._on_overlay_show)
         self.event_bus.off(Events.OVERLAY_HIDE, self._on_overlay_hide)
+        self.event_bus.off(Events.OVERLAY_SET_THEME, self._on_set_theme)
         self.event_bus.off(Events.QUIT, self._on_quit)
 
         if self.widget:
@@ -342,42 +344,14 @@ class OverlayPlugin(Plugin):
             saved_theme = self.config.get("theme", "dark")
             self.widget.theme = saved_theme
 
-            # 应用启动位置
-            self._apply_position()
-
             self.widget.show()
             self.logger.info("Overlay 插件: 悬浮窗已创建")
         except (RuntimeError, OSError) as e:
             self.logger.error(f"Overlay 插件: 创建悬浮窗失败: {e}")
 
-    def _apply_position(self):
-        """根据配置设置悬浮窗位置"""
-        if not self.widget:
-            return
-
-        position = self.config.get_position()
-        if position == "custom":
-            return  # 用户自定义位置，不动
-
-        from PyQt5.QtWidgets import QDesktopWidget
-        screen = QDesktopWidget().availableGeometry()
-        margin = 20
-        w = self.widget.width()
-        h = self.widget.height()
-
-        if position == "top-left":
-            self.widget.move(screen.left() + margin, screen.top() + margin)
-        elif position == "top-right":
-            self.widget.move(screen.right() - w - margin, screen.top() + margin)
-        elif position == "bottom-left":
-            self.widget.move(screen.left() + margin, screen.bottom() - h - margin)
-        elif position == "bottom-right":
-            self.widget.move(screen.right() - w - margin, screen.bottom() - h - margin)
-
     def set_position(self, position: str):
-        """设置位置并应用"""
+        """设置位置并通知其他插件"""
         self.config.set_position(position)
-        self._apply_position()
         
         # 通知其他插件Overlay位置变化
         if self.widget:
@@ -419,7 +393,7 @@ class OverlayPlugin(Plugin):
     def _get_pet_bounds(self):
         """获取桌宠的位置和尺寸，供气泡拖拽时计算整体边界"""
         try:
-            pet_plugin = self.kernel.plugin_manager.get_plugin("desktop_pet")
+            pet_plugin = self.get_plugin("desktop_pet")
             if pet_plugin and getattr(pet_plugin, '_pet_widget', None):
                 pw = pet_plugin._pet_widget
                 if pw.isVisible():
@@ -458,6 +432,14 @@ class OverlayPlugin(Plugin):
     def _on_overlay_hide(self, **kwargs):
         """处理隐藏Overlay事件"""
         self.hide()
+
+    def _on_set_theme(self, **kwargs):
+        """处理设置主题事件"""
+        theme = kwargs.get("theme")
+        if theme and self.widget:
+            self.widget.theme = theme
+            self.widget.update()
+            self.logger.info(f"Overlay 插件: 主题已切换为 {theme}")
 
     def _on_widget_close(self, event):
         """处理悬浮窗关闭事件（最小化到托盘或真正关闭）"""

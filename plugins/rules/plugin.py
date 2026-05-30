@@ -47,13 +47,14 @@ class RulesPlugin(Plugin):
     
     def on_load(self):
         """插件加载"""
-        self.logger = self.kernel.logger
+        
         
         # 加载分类规则
         self._load_categories()
         
         # 注册事件监听
         self.event_bus.on(Events.WINDOW_CHANGED, self._on_window_changed)
+        self.event_bus.on(Events.RULES_RELOAD, self._on_rules_reload)
         
         self.logger.info(f"Rules 插件已加载，{len(self._categories)} 个分类")
     
@@ -61,6 +62,7 @@ class RulesPlugin(Plugin):
         """插件卸载"""
         # 注销事件监听
         self.event_bus.off(Events.WINDOW_CHANGED, self._on_window_changed)
+        self.event_bus.off(Events.RULES_RELOAD, self._on_rules_reload)
         
         self.logger.info("Rules 插件已卸载")
     
@@ -126,6 +128,10 @@ class RulesPlugin(Plugin):
         
         self.logger.debug(f"Rules 插件: {window_info.title[:30]} -> {result.category}")
     
+    def _on_rules_reload(self, **kwargs):
+        """处理规则重新加载事件"""
+        self.reload_rules()
+    
     def classify(self, title: str, process_name: str) -> ClassificationResult:
         """
         分类窗口（优化版本：使用索引）
@@ -186,31 +192,6 @@ class RulesPlugin(Plugin):
             icon="💻",
             color=(149, 165, 166)
         )
-    
-    def _match_rule(self, rule: dict, title: str, process_name: str) -> bool:
-        """
-        匹配单条规则
-        
-        Args:
-            rule: 规则 {"type": "process"|"title", "pattern": "..."}
-            title: 窗口标题
-            process_name: 进程名
-        
-        Returns:
-            是否匹配
-        """
-        rule_type = rule.get("type", "")
-        pattern = rule.get("pattern", "")
-        
-        if rule_type == "process":
-            # 进程名匹配（不区分大小写）
-            return fnmatch.fnmatch(process_name.lower(), pattern.lower())
-        
-        elif rule_type == "title":
-            # 窗口标题匹配（支持通配符）
-            return fnmatch.fnmatch(title, pattern)
-        
-        return False
     
     def reload_rules(self):
         """重新加载规则"""

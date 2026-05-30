@@ -8,6 +8,7 @@ import json
 import os
 import copy
 import logging
+import threading
 from typing import Dict, Any, Optional, List
 from contextlib import contextmanager
 
@@ -231,6 +232,7 @@ class Config:
         self.config_path = config_path
         self._config: Dict[str, Any] = {}
         self._batch_mode = False
+        self._lock = threading.RLock()  # 可重入锁，保护多线程访问
         self._ensure_dir()
         self.load()
     
@@ -242,20 +244,21 @@ class Config:
     
     def load(self):
         """加载配置文件"""
-        if os.path.exists(self.config_path):
-            try:
-                with open(self.config_path, 'r', encoding='utf-8') as f:
-                    self._config = json.load(f)
-                # 合并默认配置（确保新增的配置项存在）
-                self._merge_defaults()
-                # 迁移旧版本配置
-                self._migrate_config()
-            except (json.JSONDecodeError, IOError, OSError) as e:
-                logger.error(f"加载配置失败: {e}")
+        with self._lock:
+            if os.path.exists(self.config_path):
+                try:
+                    with open(self.config_path, 'r', encoding='utf-8') as f:
+                        self._config = json.load(f)
+                    # 合并默认配置（确保新增的配置项存在）
+                    self._merge_defaults()
+                    # 迁移旧版本配置
+                    self._migrate_config()
+                except (json.JSONDecodeError, IOError, OSError) as e:
+                    logger.error(f"加载配置失败: {e}")
+                    self._config = copy.deepcopy(DEFAULT_CONFIG)
+            else:
                 self._config = copy.deepcopy(DEFAULT_CONFIG)
-        else:
-            self._config = copy.deepcopy(DEFAULT_CONFIG)
-            self.save()
+                self.save()
     
     def _merge_defaults(self):
         """合并默认配置"""
@@ -311,13 +314,14 @@ class Config:
 
     def save(self):
         """保存配置文件"""
-        if self._batch_mode:
-            return
-        try:
-            with open(self.config_path, 'w', encoding='utf-8') as f:
-                json.dump(self._config, f, ensure_ascii=False, indent=2)
-        except Exception as e:
-            logger.error(f"保存配置失败: {e}")
+        with self._lock:
+            if self._batch_mode:
+                return
+            try:
+                with open(self.config_path, 'w', encoding='utf-8') as f:
+                    json.dump(self._config, f, ensure_ascii=False, indent=2)
+            except Exception as e:
+                logger.error(f"保存配置失败: {e}")
     
     def get(self, key: str, default: Any = None) -> Any:
         """
@@ -330,16 +334,17 @@ class Config:
         Returns:
             配置值
         """
-        keys = key.split('.')
-        value = self._config
-        
-        for k in keys:
-            if isinstance(value, dict) and k in value:
-                value = value[k]
-            else:
-                return default
-        
-        return value
+        with self._lock:
+            keys = key.split('.')
+            value = self._config
+            
+            for k in keys:
+                if isinstance(value, dict) and k in value:
+                    value = value[k]
+                else:
+                    return default
+            
+            return value
     
     def set(self, key: str, value: Any):
         """
@@ -349,82 +354,97 @@ class Config:
             key: 配置键（支持点号分隔）
             value: 配置值
         """
-        keys = key.split('.')
-        config = self._config
-        
-        for k in keys[:-1]:
-            if k not in config:
-                config[k] = {}
-            config = config[k]
-        
-        config[keys[-1]] = value
-        self.save()
+        with self._lock:
+            keys = key.split('.')
+            config = self._config
+            
+            for k in keys[:-1]:
+                if k not in config:
+                    config[k] = {}
+                config = config[k]
+            
+            config[keys[-1]] = value
+            self.save()
     
     def get_categories(self) -> Dict:
         """获取分类配置"""
-        return self._config.get("categories", {})
+        with self._lock:
+            return self._config.get("categories", {})
     
     def set_categories(self, categories: Dict):
         """设置分类配置"""
-        self._config["categories"] = categories
-        self.save()
+        with self._lock:
+            self._config["categories"] = categories
+            self.save()
     
     def get_opacity(self) -> float:
         """获取透明度"""
-        return self._config.get("opacity", 0.9)
+        with self._lock:
+            return self._config.get("opacity", 0.9)
     
     def set_opacity(self, opacity: float):
         """设置透明度"""
-        self._config["opacity"] = opacity
-        self.save()
+        with self._lock:
+            self._config["opacity"] = opacity
+            self.save()
     
     def is_always_on_top(self) -> bool:
         """是否置顶"""
-        return self._config.get("always_on_top", True)
+        with self._lock:
+            return self._config.get("always_on_top", True)
     
     def set_always_on_top(self, enabled: bool):
         """设置置顶"""
-        self._config["always_on_top"] = enabled
-        self.save()
+        with self._lock:
+            self._config["always_on_top"] = enabled
+            self.save()
     
     def get_position(self) -> str:
         """获取启动位置（top-left/top-right/bottom-left/bottom-right/custom）"""
-        return self._config.get("position", "top-right")
+        with self._lock:
+            return self._config.get("position", "top-right")
     
     def set_position(self, position: str):
         """设置启动位置"""
-        self._config["position"] = position
-        self.save()
+        with self._lock:
+            self._config["position"] = position
+            self.save()
     
     def is_minimize_to_tray(self) -> bool:
         """关闭时是否最小化到托盘"""
-        return self._config.get("minimize_to_tray", True)
+        with self._lock:
+            return self._config.get("minimize_to_tray", True)
     
     def set_minimize_to_tray(self, enabled: bool):
         """设置关闭时最小化到托盘"""
-        self._config["minimize_to_tray"] = enabled
-        self.save()
+        with self._lock:
+            self._config["minimize_to_tray"] = enabled
+            self.save()
     
     def is_plugin_enabled(self, plugin_name: str) -> bool:
         """检查插件是否启用"""
-        plugins = self._config.get("plugins", {})
-        return plugins.get(plugin_name, True)
+        with self._lock:
+            plugins = self._config.get("plugins", {})
+            return plugins.get(plugin_name, True)
     
     def enable_plugin(self, plugin_name: str):
         """启用插件"""
-        if "plugins" not in self._config:
-            self._config["plugins"] = {}
-        self._config["plugins"][plugin_name] = True
-        self.save()
+        with self._lock:
+            if "plugins" not in self._config:
+                self._config["plugins"] = {}
+            self._config["plugins"][plugin_name] = True
+            self.save()
     
     def disable_plugin(self, plugin_name: str):
         """禁用插件"""
-        if "plugins" not in self._config:
-            self._config["plugins"] = {}
-        self._config["plugins"][plugin_name] = False
-        self.save()
+        with self._lock:
+            if "plugins" not in self._config:
+                self._config["plugins"] = {}
+            self._config["plugins"][plugin_name] = False
+            self.save()
     
     def get_enabled_plugins(self) -> List[str]:
         """获取启用的插件列表（从 plugins 字典推导）"""
-        plugins = self._config.get("plugins", {})
-        return [name for name, enabled in plugins.items() if enabled]
+        with self._lock:
+            plugins = self._config.get("plugins", {})
+            return [name for name, enabled in plugins.items() if enabled]

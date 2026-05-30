@@ -40,7 +40,7 @@ class TrayPlugin(Plugin):
     
     def on_load(self):
         """插件加载"""
-        self.logger = self.kernel.logger
+        
         
         # 创建系统托盘
         self._create_tray()
@@ -352,7 +352,7 @@ class TrayPlugin(Plugin):
     def _export_csv(self):
         """导出统计为 CSV"""
         try:
-            stats_plugin = self.kernel.plugin_manager.get_plugin("stats")
+            stats_plugin = self.get_plugin("stats")
             if not stats_plugin:
                 QMessageBox.warning(None, "导出失败", "统计插件未加载")
                 return
@@ -365,7 +365,7 @@ class TrayPlugin(Plugin):
     def _export_json(self):
         """导出统计为 JSON"""
         try:
-            stats_plugin = self.kernel.plugin_manager.get_plugin("stats")
+            stats_plugin = self.get_plugin("stats")
             if not stats_plugin:
                 QMessageBox.warning(None, "导出失败", "统计插件未加载")
                 return

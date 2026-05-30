@@ -97,7 +97,7 @@ class MonitorPlugin(Plugin):
     
     def on_load(self):
         """插件加载"""
-        self.logger = self.kernel.logger
+        
         
         # 导入 Windows API
         try:

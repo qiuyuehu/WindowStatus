@@ -49,7 +49,7 @@ class RemindersPlugin(Plugin):
 
     def on_load(self):
         """插件加载"""
-        self.logger = self.kernel.logger
+        
 
         # 注册事件
         self.event_bus.on(Events.CATEGORY_MATCHED, self._on_category_matched)

@@ -62,6 +62,10 @@ class Events:
     OVERLAY_SHOW = "overlay.show"                          # 显示Overlay
     OVERLAY_HIDE = "overlay.hide"                          # 隐藏Overlay
     OVERLAY_DATA_CHANGED = "overlay.data.changed"          # Overlay数据变更
+    OVERLAY_SET_THEME = "overlay.set.theme"                # 设置Overlay主题
+    
+    # Rules事件
+    RULES_RELOAD = "rules.reload"                          # 重新加载规则
 
 
 class EventBus:
