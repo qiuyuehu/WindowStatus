@@ -30,7 +30,8 @@ from PyQt5.QtWidgets import QApplication, QMessageBox
 from PyQt5.QtGui import QIcon
 
 from kernel.core import Kernel
-from kernel.event_bus import Events
+from kernel.event_bus import EventBus, Events
+from kernel.plugin_manager import PluginManager
 
 
 # 配置文件路径
@@ -102,6 +103,9 @@ class WindowStatusApp:
         # 退出事件
         self.kernel.event_bus.on(Events.QUIT, self._on_quit)
 
+        # 重启事件
+        self.kernel.event_bus.on(Events.RESTART, self._on_restart)
+
         # 显示统计窗口（stats 插件的弹窗需要通过主应用委托）
         self.kernel.event_bus.on(Events.SHOW_STATS, self._on_show_stats)
     
@@ -137,6 +141,33 @@ class WindowStatusApp:
         except Exception as e:
             self.kernel.logger.error(f"退出失败: {e}")
             self.app.quit()
+    
+    def _on_restart(self, **kwargs):
+        """处理重启事件 — 进程内重载所有插件"""
+        try:
+            self.kernel.logger.info("WindowStatus 重启中（进程内重载）...")
+            
+            # 1. 停止 Kernel（卸载插件 + 清理事件）
+            self.kernel.stop()
+            
+            # 2. 重新初始化核心模块
+            self.kernel.event_bus = EventBus()
+            self.kernel.set_qt_app(self.app)
+            self.kernel.config.reload()
+            self.kernel.plugin_manager = PluginManager(self.kernel)
+            
+            # 3. 重新注册应用级事件
+            self._register_app_events()
+            
+            # 4. 重新启动（加载插件）
+            self.kernel.start()
+            
+            self.kernel.logger.info("WindowStatus 重启完成")
+        
+        except Exception as e:
+            self.kernel.logger.error(f"重启失败: {e}")
+            from PyQt5.QtWidgets import QMessageBox
+            QMessageBox.critical(None, "重启失败", f"重启失败: {e}")
     
     def _on_show_stats(self, **kwargs):
         """显示统计窗口 — 委托给 stats 插件自己处理"""

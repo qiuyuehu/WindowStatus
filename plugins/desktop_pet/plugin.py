@@ -51,7 +51,6 @@ class DesktopPetPlugin(Plugin):
         # 注册事件监听
         self.event_bus.on(Events.CATEGORY_MATCHED, self._on_category_matched)
         self.event_bus.on(Events.OVERLAY_POSITION_CHANGED, self._on_overlay_position_changed)
-        self.event_bus.on(Events.OVERLAY_MOVED, self._on_overlay_moved)
         self.event_bus.on(Events.TOGGLE_TOP, self._on_toggle_top)
         self.event_bus.on(Events.OVERLAY_SHOW, self._on_overlay_show)
         self.event_bus.on(Events.OVERLAY_HIDE, self._on_overlay_hide)
@@ -62,7 +61,6 @@ class DesktopPetPlugin(Plugin):
         """插件卸载"""
         self.event_bus.off(Events.CATEGORY_MATCHED, self._on_category_matched)
         self.event_bus.off(Events.OVERLAY_POSITION_CHANGED, self._on_overlay_position_changed)
-        self.event_bus.off(Events.OVERLAY_MOVED, self._on_overlay_moved)
         self.event_bus.off(Events.TOGGLE_TOP, self._on_toggle_top)
         self.event_bus.off(Events.OVERLAY_SHOW, self._on_overlay_show)
         self.event_bus.off(Events.OVERLAY_HIDE, self._on_overlay_hide)
@@ -116,6 +114,9 @@ class DesktopPetPlugin(Plugin):
             
             # 创建桌宠控件
             self._pet_widget = DesktopPetWidget(assets_dir)
+            
+            # 注册拖拽回调：拖桌宠时同步气泡位置
+            self._pet_widget._on_drag_move_callback = self._on_pet_drag_move
             
             # 定位到Overlay旁边
             self._initialized = False
@@ -212,9 +213,30 @@ class DesktopPetPlugin(Plugin):
         """处理Overlay位置变化事件"""
         self._sync_position(x, y, width, height)
 
-    def _on_overlay_moved(self, x=None, y=None, width=None, height=None, **kwargs):
-        """处理Overlay被拖动事件"""
-        self._sync_position(x, y, width, height)
+    def _on_pet_drag_move(self, pet_x, pet_y):
+        """拖桌宠时反向定位气泡位置"""
+        try:
+            overlay_plugin = self.get_plugin("overlay")
+            if not overlay_plugin or not overlay_plugin.widget:
+                return
+            overlay_widget = overlay_plugin.widget
+            
+            # 从桌宠位置反算气泡位置
+            # 关系：pet_x = overlay_x + bubble_width - 1 - pet_w // 2 + 8
+            # 所以：overlay_x = pet_x - bubble_width + 1 + pet_w // 2 - 8
+            pet_w = self._pet_widget.width()
+            bubble_width = overlay_widget.BUBBLE_WIDTH
+            bubble_height = overlay_widget.BUBBLE_HEIGHT
+            dot_radius = overlay_widget.DOT_RADIUS
+            
+            new_overlay_x = pet_x - bubble_width + 1 + pet_w // 2 - 8
+            # 关系：pet_y = overlay_y + bubble_height + dot_radius + 1 - 60
+            # 所以：overlay_y = pet_y - bubble_height - dot_radius - 1 + 60
+            new_overlay_y = pet_y - bubble_height - dot_radius - 1 + 60
+            
+            overlay_widget.move(new_overlay_x, new_overlay_y)
+        except Exception as e:
+            self.logger.error(f"桌宠插件: 同步气泡位置失败: {e}")
 
     def _on_toggle_top(self, enabled: bool, **kwargs):
         """处理置顶切换事件，同步桌宠置顶状态"""
@@ -261,6 +283,9 @@ class DesktopPetPlugin(Plugin):
         """跟随Overlay移动"""
         try:
             if not self._pet_widget:
+                return
+            # 拖拽中不跟随，避免和鼠标拖拽冲突
+            if self._pet_widget._is_dragging:
                 return
             # 首次定位完成前，即使不可见也要尝试定位
             if not self._initialized:

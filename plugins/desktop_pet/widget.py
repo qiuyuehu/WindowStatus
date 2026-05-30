@@ -8,7 +8,7 @@ import os
 from typing import Optional, Dict
 
 from PyQt5.QtWidgets import QWidget
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QPixmap, QPainter
 
 
@@ -50,8 +50,23 @@ class DesktopPetWidget(QWidget):
         # 图片缓存
         self._image_cache: Dict[str, QPixmap] = {}
         
-        # 窗口设置 - 无边框、置顶、透明背景
-        self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
+        # 拖拽状态
+        self._is_dragging = False
+        self._drag_pending = False  # 等待长按确认
+        self._drag_offset = None
+        self._state_before_drag = "待机"
+        
+        # 长按检测定时器
+        self._long_press_timer = QTimer()
+        self._long_press_timer.setSingleShot(True)
+        self._long_press_timer.timeout.connect(self._on_long_press)
+        self._long_press_pos = None
+        
+        # 外部回调：拖拽移动时通知（用于同步气泡位置）
+        self._on_drag_move_callback = None
+        
+        # 窗口设置 - 无边框、置顶、透明背景（不加 Qt.Tool，Win11 鼠标事件会失效）
+        self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setWindowTitle("WindowStatus - 桌宠")
         self.setFixedSize(256, 256)
@@ -88,6 +103,15 @@ class DesktopPetWidget(QWidget):
     
     def update_category(self, category: str, icon: str, title: str):
         """根据分类更新桌宠状态"""
+        # 拖拽中不更新状态，避免和拖拽状态冲突
+        if self._is_dragging:
+            return
+        # 长按等待中也不更新
+        if self._drag_pending:
+            return
+        # 气泡拖拽中也不更新
+        if self._current_state == "拖拽":
+            return
         # 映射分类到状态
         state = self.CATEGORY_TO_STATE.get(category, "待机")
         self._set_state(state)
@@ -98,3 +122,48 @@ class DesktopPetWidget(QWidget):
             painter = QPainter(self)
             painter.setRenderHint(QPainter.SmoothPixmapTransform)
             painter.drawPixmap(0, 0, self._current_pixmap)
+    
+    def _on_long_press(self):
+        """长按确认 - 进入拖拽模式"""
+        if self._drag_pending and not self._is_dragging:
+            self._is_dragging = True
+            self._drag_pending = False
+            self._drag_offset = self._long_press_pos
+            # 记录拖拽前的状态，切换到拖拽图片
+            self._state_before_drag = self._current_state
+            self._set_state("拖拽")
+    
+    def mousePressEvent(self, event):
+        """鼠标按下 - 开始等待长按"""
+        if event.button() == Qt.LeftButton:
+            self._drag_pending = True
+            self._long_press_pos = event.globalPos() - self.pos()
+            self._long_press_timer.start(200)  # 200ms 后确认为长按
+            event.accept()
+    
+    def mouseMoveEvent(self, event):
+        """鼠标移动 - 拖拽中"""
+        if self._is_dragging and (event.buttons() & Qt.LeftButton) and self._drag_offset:
+            new_pos = event.globalPos() - self._drag_offset
+            # 屏幕边界检测
+            from PyQt5.QtWidgets import QApplication
+            screen = QApplication.primaryScreen().geometry()
+            x = max(screen.left(), min(new_pos.x(), screen.right() - self.width() + 20))
+            y = max(screen.top(), min(new_pos.y(), screen.bottom() - self.height() + 20))
+            self.move(x, y)
+            # 通知外部（气泡）同步位置
+            if self._on_drag_move_callback:
+                self._on_drag_move_callback(x, y)
+            event.accept()
+    
+    def mouseReleaseEvent(self, event):
+        """鼠标释放 - 结束拖拽或取消等待"""
+        if event.button() == Qt.LeftButton:
+            self._long_press_timer.stop()
+            self._drag_pending = False
+            if self._is_dragging:
+                self._is_dragging = False
+                self._drag_offset = None
+                # 切回拖拽前的状态
+                self._set_state(self._state_before_drag)
+            event.accept()

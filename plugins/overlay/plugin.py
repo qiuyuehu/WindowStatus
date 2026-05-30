@@ -28,13 +28,10 @@ class OverlayWidget(QWidget):
     BUBBLE_RADIUS = 20
     DOT_RADIUS = 3  # 小气泡半径（更小）
 
-    def __init__(self, config: dict, on_drag_end=None, on_close=None, on_move=None, get_pet_bounds=None):
+    def __init__(self, config: dict, on_close=None):
         super().__init__()
         self.config = config
-        self._on_drag_end = on_drag_end  # 拖拽结束回调
         self._on_close = on_close  # 关闭事件回调
-        self._on_move = on_move  # 实时移动回调（拖拽中持续触发）
-        self._get_pet_bounds = get_pet_bounds  # 获取桌宠边界回调
 
         # 窗口设置
         self.setWindowTitle("WindowStatus")
@@ -42,12 +39,8 @@ class OverlayWidget(QWidget):
         self.setAttribute(Qt.WA_TranslucentBackground)
         # 额外空间给小气泡（上下都有）
         self.setFixedSize(self.BUBBLE_WIDTH + self.DOT_RADIUS, self.BUBBLE_HEIGHT + self.DOT_RADIUS * 2 + 2)
-        self.setMouseTracking(True)
 
-        # 拖拽状态
-        self._dragging = False
-        self._drag_offset = QPoint()
-
+        # 颜色方案
         # 当前状态
         self.current_category = "其他"
         self.current_icon = "💻"
@@ -151,67 +144,6 @@ class OverlayWidget(QWidget):
         painter.setFont(QFont('Microsoft YaHei UI', 8))
         painter.setPen(colors["category"])
         painter.drawText(QRectF(margin_left, category_y - 10, content_width, 14), Qt.AlignLeft | Qt.AlignVCenter, self.current_category)
-
-    # ---- 拖拽实现 ----
-
-    def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton:
-            self._dragging = True
-            self._drag_offset = event.globalPos() - self.frameGeometry().topLeft()
-            event.accept()
-
-    def mouseMoveEvent(self, event):
-        if self._dragging and (event.buttons() & Qt.LeftButton):
-            new_pos = event.globalPos() - self._drag_offset
-            
-            # 屏幕边界检测（用 geometry 包含任务栏区域）
-            from PyQt5.QtWidgets import QApplication
-            screen = QApplication.primaryScreen().geometry()
-            
-            x = max(screen.left(), min(new_pos.x(), screen.right() - self.width()))
-            y = max(screen.top(), min(new_pos.y(), screen.bottom() - self.height()))
-            
-            # 如果有桌宠，确保"气泡+桌宠"整体不超出屏幕
-            if self._get_pet_bounds:
-                pet_bounds = self._get_pet_bounds()
-                if pet_bounds:
-                    pet_x, pet_y, pet_w, pet_h = pet_bounds
-                    # 桌宠相对于气泡当前的偏移量
-                    dx = pet_x - self.pos().x()
-                    dy = pet_y - self.pos().y()
-                    # 桌宠在气泡新位置时的位置
-                    new_pet_x = x + dx
-                    new_pet_y = y + dy
-                    # 如果桌宠超出边界，调整气泡位置
-                    if new_pet_x < screen.left():
-                        x += screen.left() - new_pet_x
-                    if new_pet_y < screen.top():
-                        y += screen.top() - new_pet_y
-                    if new_pet_x + pet_w > screen.right() + 20:
-                        x -= (new_pet_x + pet_w) - (screen.right() + 20)
-                    if new_pet_y + pet_h > screen.bottom() + 20:
-                        y -= (new_pet_y + pet_h) - (screen.bottom() + 20)
-                    # 最终 clamp：确保气泡自身也不出屏
-                    x = max(screen.left(), min(x, screen.right() - self.width()))
-                    y = max(screen.top(), min(y, screen.bottom() - self.height()))
-            
-            self.move(x, y)
-            event.accept()
-
-    def mouseReleaseEvent(self, event):
-        if event.button() == Qt.LeftButton:
-            if self._dragging:
-                self._dragging = False
-                # 通知外部拖拽结束（用于切换为自定义位置）
-                if self._on_drag_end:
-                    self._on_drag_end()
-            event.accept()
-
-    def moveEvent(self, event):
-        """窗口移动时实时通知外部（拖拽过程中持续触发）"""
-        super().moveEvent(event)
-        if self._on_move:
-            self._on_move()
 
     def closeEvent(self, event):
         """关闭事件：委托给外部处理（用于最小化到托盘）"""
@@ -334,10 +266,7 @@ class OverlayPlugin(Plugin):
                     "opacity": self.config.get_opacity(),
                     "always_on_top": self.config.is_always_on_top()
                 },
-                on_drag_end=self._on_user_dragged,
-                on_close=self._on_widget_close,
-                on_move=self._on_overlay_realtime_move,
-                get_pet_bounds=self._get_pet_bounds
+                on_close=self._on_widget_close
             )
 
             # 加载保存的主题配置
@@ -363,46 +292,6 @@ class OverlayPlugin(Plugin):
                 width=self.widget.width(),
                 height=self.widget.height()
             )
-
-    def _on_user_dragged(self):
-        """用户手动拖拽后，切换为自定义位置"""
-        self.config.set_position("custom")
-        self.logger.debug("Overlay 插件: 用户拖拽，位置切换为自定义")
-        
-        # 通知其他插件Overlay被拖动
-        if self.widget:
-            self.event_bus.emit(
-                Events.OVERLAY_MOVED,
-                x=self.widget.pos().x(),
-                y=self.widget.pos().y(),
-                width=self.widget.width(),
-                height=self.widget.height()
-            )
-    
-    def _on_overlay_realtime_move(self):
-        """实时移动通知（拖拽过程中持续触发，不写磁盘）"""
-        if self.widget:
-            self.event_bus.emit(
-                Events.OVERLAY_MOVED,
-                x=self.widget.pos().x(),
-                y=self.widget.pos().y(),
-                width=self.widget.width(),
-                height=self.widget.height()
-            )
-
-    def _get_pet_bounds(self):
-        """获取桌宠的位置和尺寸，供气泡拖拽时计算整体边界"""
-        try:
-            pet_plugin = self.get_plugin("desktop_pet")
-            if pet_plugin and getattr(pet_plugin, '_pet_widget', None):
-                pw = pet_plugin._pet_widget
-                if pw.isVisible():
-                    pos = pw.pos()
-                    size = pw.size()
-                    return (pos.x(), pos.y(), size.width(), size.height())
-        except Exception:
-            pass
-        return None
 
     def _on_category_matched(self, category: str, icon: str, color: tuple, title: str, process_name: str, **kwargs):
         """处理分类匹配事件"""

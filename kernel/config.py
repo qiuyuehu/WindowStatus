@@ -260,6 +260,10 @@ class Config:
                 self._config = copy.deepcopy(DEFAULT_CONFIG)
                 self.save()
     
+    def reload(self):
+        """重新加载配置文件（重启时用）"""
+        self.load()
+    
     def _merge_defaults(self):
         """合并默认配置"""
         for key, value in DEFAULT_CONFIG.items():

@@ -188,7 +188,7 @@ class TrayPlugin(Plugin):
         
         # 重启
         restart_action = self.menu.addAction("重启")
-        restart_action.triggered.connect(self._restart_app)
+        restart_action.triggered.connect(lambda: self.event_bus.emit(Events.RESTART))
         
         # 关于
         about_action = self.menu.addAction("关于")
@@ -324,30 +324,6 @@ class TrayPlugin(Plugin):
         """更新自启动状态"""
         if self.autostart_action:
             self.autostart_action.setChecked(enabled)
-    
-    def _restart_app(self):
-        """重启应用"""
-        import sys
-        import subprocess
-        
-        self.logger.info("Tray 插件: 正在重启应用...")
-        
-        # 获取当前可执行文件路径
-        if getattr(sys, 'frozen', False):
-            # 打包后的 exe
-            exe_path = sys.executable
-            args = [exe_path]
-        else:
-            # 开发模式
-            exe_path = sys.executable
-            args = [exe_path, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'main.py')]
-        
-        # 退出当前进程
-        from PyQt5.QtWidgets import QApplication
-        QApplication.quit()
-        
-        # 启动新进程
-        subprocess.Popen(args)
     
     def _export_csv(self):
         """导出统计为 CSV"""

@@ -55,11 +55,11 @@ class Events:
     SHOW_SETTINGS = "show.settings"        # 显示设置
     SHOW_ABOUT = "show.about"              # 显示关于
     QUIT = "quit"                          # 退出应用
+    RESTART = "restart"                    # 重启应用（进程内重载）
     
     # Overlay事件
     OVERLAY_POSITION_CHANGED = "overlay.position.changed"  # Overlay位置变更
-    OVERLAY_MOVED = "overlay.moved"                        # Overlay被拖动
-    OVERLAY_SHOW = "overlay.show"                          # 显示Overlay
+    OVERLAY_SHOW = "overlay.show"                           # 显示Overlay
     OVERLAY_HIDE = "overlay.hide"                          # 隐藏Overlay
     OVERLAY_DATA_CHANGED = "overlay.data.changed"          # Overlay数据变更
     OVERLAY_SET_THEME = "overlay.set.theme"                # 设置Overlay主题
