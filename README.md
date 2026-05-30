@@ -48,7 +48,7 @@ python main.py
 
 | 分类 | 图标 | 包含软件 |
 |------|------|----------|
-| 游戏 | 🎮 | Steam、Epic、原神、Wallpaper Engine |
+| 游戏 | 🎮 | Steam、Epic、异环、Wallpaper Engine |
 | 办公 | 📊 | Office、QQ、微信、Telegram、钉钉 |
 | 摸鱼 | 🐟 | Chrome、Edge、B站、抖音、知乎 |
 | 开发 | 💻 | VS Code、PyCharm、Git、Docker |
