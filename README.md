@@ -10,10 +10,6 @@
 
 ---
 
-<p align="center">
-  <img src="assets/桌宠.png" alt="WindowStatus 桌宠" width="400">
-</p>
-
 ## 核心功能
 
 - **气泡状态栏** — 半透明圆角气泡，显示当前窗口的分类、标题、进程名、使用时长，支持暗色/亮色主题
