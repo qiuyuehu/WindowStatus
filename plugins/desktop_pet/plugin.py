@@ -178,37 +178,13 @@ class DesktopPetPlugin(Plugin):
         pet_h = pet_size.height()
         
         # 气泡尾巴尖端对准桌宠头顶
-        # 尾巴在气泡最右边圆角处：BUBBLE_WIDTH - BUBBLE_RADIUS = 260 - 20 = 240
-        tail_x = overlay_x + 240  # 尾巴尖端的 x 坐标
+        # 小气泡在气泡底部右下角：BUBBLE_WIDTH - 1 = 260 - 1 = 259
+        tail_x = overlay_x + 259  # 小气泡尖端的 x 坐标
         
-        # 判断气泡在屏幕上半部还是下半部
-        screen_mid = (screen_top + screen_bottom) // 2
-        bubble_mid = overlay_y + 35  # 气泡中心点
-        
-        # 获取气泡widget并设置尾巴方向
-        overlay_plugin = self.kernel.plugin_manager.get_plugin("overlay")
-        if overlay_plugin and overlay_plugin.widget:
-            if bubble_mid < screen_mid:
-                overlay_plugin.widget.tail_direction = "down"
-            else:
-                overlay_plugin.widget.tail_direction = "up"
-            overlay_plugin.widget.update()  # 触发重绘
-        
-        if bubble_mid < screen_mid:
-            # 气泡在上半部，桌宠在气泡下方，尾巴朝下
-            tail_y = overlay_y + 70 + 10  # 尾巴尖端的 y 坐标（气泡主体70 + 尾巴10）
-            x = tail_x - pet_w // 2
-            x = max(screen_left, min(x, screen_right - pet_w))
-            y = tail_y - 60  # 桌宠图片头顶大约在60像素的位置
-        else:
-            # 气泡在下半部，桌宠在气泡上方，尾巴朝上
-            tail_y = overlay_y - 10  # 尾巴尖端的 y 坐标（气泡顶部往上）
-            x = tail_x - pet_w // 2
-            x = max(screen_left, min(x, screen_right - pet_w))
-            y = tail_y - pet_h + 60  # 桌宠底部对准尾巴尖端
-        
-        # 边界钳制
-        y = max(screen_top, min(y, screen_bottom - pet_h))
+        # 桌宠在气泡下方，小气泡朝下
+        tail_y = overlay_y + 70 + 3 + 1  # 气泡主体70 + 小气泡半径3 + 1
+        x = tail_x - pet_w // 2 + 8  # 向右偏移
+        y = tail_y - 60  # 桌宠图片头顶大约在60像素的位置
         
         self._pet_widget.move(x, y)
     

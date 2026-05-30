@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Optional
 
 from PyQt5.QtWidgets import QWidget
-from PyQt5.QtCore import Qt, QPoint, QTimer, QRectF
+from PyQt5.QtCore import Qt, QPoint, QTimer, QRectF, QPointF
 from PyQt5.QtGui import QPainter, QColor, QPainterPath, QFont
 
 from plugins.base import Plugin
@@ -26,21 +26,22 @@ class OverlayWidget(QWidget):
     BUBBLE_WIDTH = 260
     BUBBLE_HEIGHT = 70
     BUBBLE_RADIUS = 20
-    TAIL_SIZE = 10
+    DOT_RADIUS = 3  # 小气泡半径（更小）
 
-    def __init__(self, config: dict, on_drag_end=None, on_close=None, on_move=None):
+    def __init__(self, config: dict, on_drag_end=None, on_close=None, on_move=None, get_pet_bounds=None):
         super().__init__()
         self.config = config
         self._on_drag_end = on_drag_end  # 拖拽结束回调
         self._on_close = on_close  # 关闭事件回调
         self._on_move = on_move  # 实时移动回调（拖拽中持续触发）
+        self._get_pet_bounds = get_pet_bounds  # 获取桌宠边界回调
 
         # 窗口设置
         self.setWindowTitle("WindowStatus")
         self.setWindowFlags(self.WINDOW_FLAGS)
         self.setAttribute(Qt.WA_TranslucentBackground)
-        # 额外空间给尾巴
-        self.setFixedSize(self.BUBBLE_WIDTH, self.BUBBLE_HEIGHT + self.TAIL_SIZE + 5)
+        # 额外空间给小气泡（上下都有）
+        self.setFixedSize(self.BUBBLE_WIDTH + self.DOT_RADIUS, self.BUBBLE_HEIGHT + self.DOT_RADIUS * 2 + 2)
         self.setMouseTracking(True)
 
         # 拖拽状态
@@ -55,8 +56,8 @@ class OverlayWidget(QWidget):
         self.current_process = ""
         self.current_start_time: Optional[datetime] = None
         
-        # 尾巴方向（"down" 或 "up"）
-        self.tail_direction = "down"
+        # 小气泡方向（"down" 或 "up"）
+        self.dot_direction = "down"
         
         # 颜色方案
         self.THEMES = {
@@ -92,56 +93,29 @@ class OverlayWidget(QWidget):
             self.setWindowFlags(self.windowFlags() | Qt.WindowStaysOnTopHint)
 
     def paintEvent(self, event):
-        """绘制气泡（圆角矩形 + 尾巴）"""
+        """绘制气泡（圆角矩形 + 小气泡连接点）"""
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
-
-        # 气泡主体区域
-        if self.tail_direction == "down":
-            bubble_rect = QRectF(0, 0, self.BUBBLE_WIDTH, self.BUBBLE_HEIGHT)
-        else:
-            bubble_rect = QRectF(0, self.TAIL_SIZE + 5, self.BUBBLE_WIDTH, self.BUBBLE_HEIGHT)
-
-        # 绘制气泡路径
-        path = QPainterPath()
-        path.addRoundedRect(bubble_rect, self.BUBBLE_RADIUS, self.BUBBLE_RADIUS)
-
-        # 绘制尾巴（最右边圆角处）
-        tail_x = self.BUBBLE_WIDTH - self.BUBBLE_RADIUS  # 右边圆角处
-        tail_path = QPainterPath()
-        
-        if self.tail_direction == "down":
-            # 尾巴朝下
-            tail_y = self.BUBBLE_HEIGHT
-            tail_path.moveTo(tail_x - self.TAIL_SIZE / 2, tail_y)
-            tail_path.lineTo(tail_x, tail_y + self.TAIL_SIZE)
-            tail_path.lineTo(tail_x + self.TAIL_SIZE / 2, tail_y)
-        else:
-            # 尾巴朝上
-            tail_y = self.TAIL_SIZE + 5
-            tail_path.moveTo(tail_x - self.TAIL_SIZE / 2, tail_y)
-            tail_path.lineTo(tail_x, tail_y - self.TAIL_SIZE)
-            tail_path.lineTo(tail_x + self.TAIL_SIZE / 2, tail_y)
-        
-        tail_path.closeSubpath()
-
-        # 合并路径
-        full_path = path.united(tail_path)
 
         # 获取当前主题颜色
         colors = self.THEMES.get(self.theme, self.THEMES["dark"])
 
-        # 填充背景
-        painter.fillPath(full_path, colors["bg"])
+        # 绘制大气泡（圆角矩形）
+        bubble_rect = QRectF(0, 0, self.BUBBLE_WIDTH, self.BUBBLE_HEIGHT)
+        path = QPainterPath()
+        path.addRoundedRect(bubble_rect, self.BUBBLE_RADIUS, self.BUBBLE_RADIUS)
+        painter.fillPath(path, colors["bg"])
 
-        # 不画边框，纯填充
+        # 绘制小气泡（连接点）在大气泡底部
+        dot_x = self.BUBBLE_WIDTH - 1  # 靠近右边
+        dot_y = self.BUBBLE_HEIGHT + self.DOT_RADIUS + 1  # 大气泡底部
+        painter.setBrush(colors["bg"])
+        painter.setPen(Qt.NoPen)
+        painter.drawEllipse(QPointF(dot_x, dot_y), self.DOT_RADIUS, self.DOT_RADIUS)
 
-        # 绘制文字内容（根据尾巴方向调整偏移）
+        # 绘制文字内容
         margin_left = 15
-        if self.tail_direction == "down":
-            margin_top = 10
-        else:
-            margin_top = self.TAIL_SIZE + 5 + 10
+        margin_top = 10
         content_width = self.BUBBLE_WIDTH - margin_left * 2
 
         # 第一行：图标 + 标题
@@ -190,12 +164,36 @@ class OverlayWidget(QWidget):
         if self._dragging and (event.buttons() & Qt.LeftButton):
             new_pos = event.globalPos() - self._drag_offset
             
-            # 屏幕边界检测
+            # 屏幕边界检测（用 screenGeometry 包含任务栏区域）
             from PyQt5.QtWidgets import QDesktopWidget
-            screen = QDesktopWidget().availableGeometry()
+            screen = QDesktopWidget().screenGeometry()
             
             x = max(screen.left(), min(new_pos.x(), screen.right() - self.width()))
             y = max(screen.top(), min(new_pos.y(), screen.bottom() - self.height()))
+            
+            # 如果有桌宠，确保"气泡+桌宠"整体不超出屏幕
+            if self._get_pet_bounds:
+                pet_bounds = self._get_pet_bounds()
+                if pet_bounds:
+                    pet_x, pet_y, pet_w, pet_h = pet_bounds
+                    # 桌宠相对于气泡当前的偏移量
+                    dx = pet_x - self.pos().x()
+                    dy = pet_y - self.pos().y()
+                    # 桌宠在气泡新位置时的位置
+                    new_pet_x = x + dx
+                    new_pet_y = y + dy
+                    # 如果桌宠超出边界，调整气泡位置
+                    if new_pet_x < screen.left():
+                        x += screen.left() - new_pet_x
+                    if new_pet_y < screen.top():
+                        y += screen.top() - new_pet_y
+                    if new_pet_x + pet_w > screen.right() + 20:
+                        x -= (new_pet_x + pet_w) - (screen.right() + 20)
+                    if new_pet_y + pet_h > screen.bottom() + 20:
+                        y -= (new_pet_y + pet_h) - (screen.bottom() + 20)
+                    # 最终 clamp：确保气泡自身也不出屏
+                    x = max(screen.left(), min(x, screen.right() - self.width()))
+                    y = max(screen.top(), min(y, screen.bottom() - self.height()))
             
             self.move(x, y)
             event.accept()
@@ -336,7 +334,8 @@ class OverlayPlugin(Plugin):
                 },
                 on_drag_end=self._on_user_dragged,
                 on_close=self._on_widget_close,
-                on_move=self._on_overlay_realtime_move
+                on_move=self._on_overlay_realtime_move,
+                get_pet_bounds=self._get_pet_bounds
             )
 
             # 加载保存的主题配置
@@ -416,6 +415,20 @@ class OverlayPlugin(Plugin):
                 width=self.widget.width(),
                 height=self.widget.height()
             )
+
+    def _get_pet_bounds(self):
+        """获取桌宠的位置和尺寸，供气泡拖拽时计算整体边界"""
+        try:
+            pet_plugin = self.kernel.plugin_manager.get_plugin("desktop_pet")
+            if pet_plugin and getattr(pet_plugin, '_pet_widget', None):
+                pw = pet_plugin._pet_widget
+                if pw.isVisible():
+                    pos = pw.pos()
+                    size = pw.size()
+                    return (pos.x(), pos.y(), size.width(), size.height())
+        except Exception:
+            pass
+        return None
 
     def _on_category_matched(self, category: str, icon: str, color: tuple, title: str, process_name: str, **kwargs):
         """处理分类匹配事件"""
