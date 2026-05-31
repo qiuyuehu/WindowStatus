@@ -4,7 +4,7 @@
   <a href="README.md">中文</a> | <a href="README_EN.md">English</a>
 </p>
 
-<p align="center"><b>一款轻量的 Windows 窗口状态显示器，参考 Discord/Steam 设计，实时显示当前活动窗口的分类状态。</b></p>
+<p align="center"><b>一款轻量的 Windows 窗口状态显示器，参考 Discord/Steam状态栏设计，实时显示当前活动窗口的分类状态。</b></p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Python-3.7+-blue?logo=python&logoColor=white" alt="Python 3.7+">
