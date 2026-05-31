@@ -99,34 +99,15 @@ class DesktopPetPlugin(Plugin):
         try:
             # 获取素材目录
             import os
-            import sys
             plugin_dir = os.path.dirname(os.path.abspath(__file__))
-            built_in_dir = os.path.join(plugin_dir, "assets")
-
-            # 自定义目录：exe 同目录的 assets/pet/（打包模式）或项目根目录的 assets/pet/（开发模式）
-            if getattr(sys, 'frozen', False):
-                custom_dir = os.path.join(os.path.dirname(sys.executable), "assets", "pet")
-            else:
-                project_root = os.path.dirname(os.path.dirname(os.path.dirname(plugin_dir)))
-                custom_dir = os.path.join(project_root, "assets", "pet")
-
-            # 优先使用自定义素材，不存在则用内置素材
-            required_files = ["sit.png", "walk.png", "sleep.png", "idle.png"]
-            assets_dir = built_in_dir
-
-            if os.path.isdir(custom_dir):
-                missing = [f for f in required_files if not os.path.exists(os.path.join(custom_dir, f))]
-                if not missing:
-                    assets_dir = custom_dir
-                    self.logger.info(f"使用自定义桌宠素材: {custom_dir}")
-                else:
-                    self.logger.info(f"自定义素材不完整，使用内置素材（缺少: {', '.join(missing)}）")
-
+            assets_dir = os.path.join(plugin_dir, "assets")
+            
             if not os.path.isdir(assets_dir):
                 self.logger.error(f"桌宠素材目录不存在: {assets_dir}")
                 return
             
             # 检查素材文件
+            required_files = ["sit.png", "walk.png", "sleep.png", "idle.png"]
             for filename in required_files:
                 filepath = os.path.join(assets_dir, filename)
                 if not os.path.exists(filepath):
