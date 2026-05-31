@@ -93,45 +93,44 @@ class SummaryCard(QWidget):
                  top_icon: str, top_percent: float,
                  yesterday_total: int, parent=None):
         super().__init__(parent)
-        self.setFixedHeight(80)
+        self.setFixedHeight(90)
 
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(20, 12, 20, 12)
-        layout.setSpacing(16)
+        from PyQt5.QtWidgets import QGridLayout, QLayoutItem
+        grid = QGridLayout(self)
+        grid.setContentsMargins(20, 0, 20, 0)
+        grid.setSpacing(0)
 
-        # 左列：今日总时长
-        left = QVBoxLayout()
-        left.setSpacing(2)
-        self._total_label = QLabel(format_duration(total_seconds))
-        self._total_label.setStyleSheet(
-            "font-size: 16px; font-weight: bold; color: white;")
+        # 副标题行（row 0）
         self._total_sub = QLabel("今日总时长")
         self._total_sub.setStyleSheet(
-            "font-size: 11px; color: #888;")
-        left.addStretch()
-        left.addWidget(self._total_label)
-        left.addWidget(self._total_sub)
+            "font-size: 17px; font-weight: bold; color: #aaa;")
+        self._total_sub.setAlignment(Qt.AlignCenter)
 
-        # 中列：最常用分类
-        center = QVBoxLayout()
-        center.setSpacing(2)
+        self._top_sub = QLabel("最常用分类")
+        self._top_sub.setStyleSheet(
+            "font-size: 17px; font-weight: bold; color: #aaa;")
+        self._top_sub.setAlignment(Qt.AlignCenter)
+
+        self._compare_sub = QLabel("vs 昨天")
+        self._compare_sub.setStyleSheet(
+            "font-size: 17px; font-weight: bold; color: #aaa;")
+        self._compare_sub.setAlignment(Qt.AlignCenter)
+
+        # 主数据行（row 1）
+        self._total_label = QLabel(format_duration(total_seconds))
+        self._total_label.setStyleSheet(
+            "font-size: 14px; color: white;")
+        self._total_label.setAlignment(Qt.AlignCenter)
+
         if top_category:
             center_text = f"{top_icon} {top_category}  占 {top_percent:.0f}%"
         else:
             center_text = "暂无数据"
         self._top_label = QLabel(center_text)
         self._top_label.setStyleSheet(
-            "font-size: 15px; font-weight: bold; color: white;")
-        self._top_sub = QLabel("最常用分类")
-        self._top_sub.setStyleSheet("font-size: 11px; color: #888;")
-        center.addStretch()
-        center.addWidget(self._top_label)
-        center.addWidget(self._top_sub)
+            "font-size: 14px; color: white;")
+        self._top_label.setAlignment(Qt.AlignCenter)
 
-        # 右列：和昨天对比（加左 padding 避开分隔线）
-        right = QVBoxLayout()
-        right.setSpacing(2)
-        right.setContentsMargins(12, 0, 0, 0)
         if yesterday_total > 0 and total_seconds > 0:
             diff_pct = (total_seconds - yesterday_total) / yesterday_total * 100
             if diff_pct >= 0:
@@ -151,16 +150,22 @@ class SummaryCard(QWidget):
             color = "#888"
         self._compare_label = QLabel(compare_text)
         self._compare_label.setStyleSheet(
-            f"font-size: 15px; font-weight: bold; color: {color};")
-        self._compare_sub = QLabel("vs 昨天")
-        self._compare_sub.setStyleSheet("font-size: 11px; color: #888;")
-        right.addStretch()
-        right.addWidget(self._compare_label)
-        right.addWidget(self._compare_sub)
+            f"font-size: 14px; color: {color};")
+        self._compare_label.setAlignment(Qt.AlignCenter)
 
-        layout.addLayout(left, 1)
-        layout.addLayout(center, 1)
-        layout.addLayout(right, 1)
+        # 布局：row 0 = 副标题，row 1 = 主数据
+        grid.addWidget(self._total_sub, 0, 0, Qt.AlignCenter)
+        grid.addWidget(self._top_sub, 0, 1, Qt.AlignCenter)
+        grid.addWidget(self._compare_sub, 0, 2, Qt.AlignCenter)
+        grid.addWidget(self._total_label, 1, 0, Qt.AlignCenter)
+        grid.addWidget(self._top_label, 1, 1, Qt.AlignCenter)
+        grid.addWidget(self._compare_label, 1, 2, Qt.AlignCenter)
+
+        grid.setRowStretch(0, 1)
+        grid.setRowStretch(1, 1)
+        grid.setColumnStretch(0, 1)
+        grid.setColumnStretch(1, 1)
+        grid.setColumnStretch(2, 1)
 
     def paintEvent(self, event):
         """绘制卡片背景和分隔线"""
@@ -180,6 +185,10 @@ class SummaryCard(QWidget):
         painter.drawLine(x1, margin_top, x1, h - margin_bottom)
         x2 = w * 2 // 3
         painter.drawLine(x2, margin_top, x2, h - margin_bottom)
+
+        # 水平分隔线：副标题和主数据之间
+        separator_y = int(h * 0.4)
+        painter.drawLine(0, separator_y, w, separator_y)
 
 
 # ── 环形图 ──────────────────────────────────────────────────────
@@ -493,7 +502,7 @@ class StatsDialog(QDialog):
 
         # 中间区域：环形图 + 列表
         mid_layout = QHBoxLayout()
-        mid_layout.setContentsMargins(16, 12, 16, 0)
+        mid_layout.setContentsMargins(16, 24, 16, 0)
         mid_layout.setSpacing(16)
 
         # 左侧：环形图
