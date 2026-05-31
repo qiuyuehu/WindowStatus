@@ -83,8 +83,8 @@ LOG_FILE = os.path.join(CONFIG_DIR, 'window_status.log')
 def _get_icon_path() -> str:
     """获取图标文件路径（兼容开发模式和打包模式）"""
     if getattr(sys, 'frozen', False):
-        # 打包模式：图标在 exe 同目录
-        base_dir = os.path.dirname(sys.executable)
+        # 打包模式：图标在 PyInstaller 临时目录
+        base_dir = sys._MEIPASS
     else:
         # 开发模式：图标在项目根目录
         base_dir = os.path.dirname(os.path.abspath(__file__))

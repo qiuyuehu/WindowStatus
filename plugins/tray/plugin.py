@@ -80,7 +80,7 @@ class TrayPlugin(Plugin):
             # 使用应用图标文件
             import sys
             if getattr(sys, 'frozen', False):
-                base_dir = os.path.dirname(sys.executable)
+                base_dir = sys._MEIPASS
             else:
                 base_dir = os.path.dirname(os.path.abspath(__file__))
                 # 开发模式：图标在项目根目录（plugins/tray/ 上两级）
