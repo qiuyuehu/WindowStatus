@@ -1,5 +1,9 @@
 <h1 align="center">🪟 WindowStatus</h1>
 
+<p align="center">
+  <a href="README.md">中文</a> | <a href="README_EN.md">English</a>
+</p>
+
 <p align="center"><b>A lightweight Windows activity monitor inspired by Discord/Steam, showing real-time status of your active window.</b></p>
 
 <p align="center">
