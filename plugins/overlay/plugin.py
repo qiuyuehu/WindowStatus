@@ -273,6 +273,14 @@ class OverlayPlugin(Plugin):
             saved_theme = self.config.get("theme", "dark")
             self.widget.theme = saved_theme
 
+            # 先隐藏，恢复位置后再显示（避免闪到默认位置）
+            self.widget.hide()
+
+            # 恢复桌宠保存的气泡位置（如果有）
+            saved_pos = self._kernel.config.get("desktop_pet.overlay_position")
+            if saved_pos and "x" in saved_pos and "y" in saved_pos:
+                self.widget.move(saved_pos["x"], saved_pos["y"])
+
             self.widget.show()
             self.logger.info("Overlay 插件: 悬浮窗已创建")
         except (RuntimeError, OSError) as e:

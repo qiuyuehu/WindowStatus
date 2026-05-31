@@ -776,6 +776,47 @@ class StatsPlugin(Plugin):
             self.logger.error(f"Stats 插件: 获取本月统计失败: {e}")
             return []
     
+    def get_yesterday_stats(self) -> List[Tuple[str, int]]:
+        """
+        获取昨日统计
+
+        先查 daily_stats（昨天已被聚合），如果没有则查 activity_log。
+
+        Returns:
+            List[Tuple[str, int]]: [(分类, 总时长), ...]
+        """
+        if not self.conn:
+            return []
+
+        try:
+            yesterday = (datetime.now() - timedelta(days=1)).date()
+            cursor = self.conn.cursor()
+
+            # 先查 daily_stats（已被聚合的历史数据）
+            cursor.execute('''
+                SELECT category, total_duration
+                FROM daily_stats
+                WHERE date = ?
+                ORDER BY total_duration DESC
+            ''', (yesterday,))
+            result = cursor.fetchall()
+            if result:
+                return result
+
+            # 如果 daily_stats 没有，查 activity_log（昨天数据尚未聚合）
+            cursor.execute('''
+                SELECT category, SUM(duration) as total_duration
+                FROM activity_log
+                WHERE DATE(start_time) = ?
+                GROUP BY category
+                ORDER BY total_duration DESC
+            ''', (yesterday,))
+            return cursor.fetchall()
+
+        except Exception as e:
+            self.logger.error(f"Stats 插件: 获取昨日统计失败: {e}")
+            return []
+
     def get_today_timeline(self, limit: int = 50) -> List[Tuple]:
         """
         获取今日时间线
@@ -969,8 +1010,22 @@ class StatsPlugin(Plugin):
         timeline_data = self.get_today_timeline()
         week_stats = self.get_week_stats()
         month_stats = self.get_month_stats()
+        yesterday_stats = self.get_yesterday_stats()
 
-        dialog = StatsDialog(stats_data, timeline_data, week_stats, month_stats, parent=parent)
+        # 从配置获取分类信息（颜色、图标）
+        categories_config = self._kernel.config.get_categories()
+
+        dialog = StatsDialog(
+            stats_data=stats_data,
+            timeline_data=timeline_data,
+            week_stats=week_stats,
+            month_stats=month_stats,
+            yesterday_stats=yesterday_stats,
+            categories_config=categories_config,
+            export_csv_fn=self.export_to_csv,
+            export_json_fn=self.export_to_json,
+            parent=parent
+        )
         self._active_dialog = dialog
         dialog.finished.connect(self._on_dialog_finished)
         dialog.show()

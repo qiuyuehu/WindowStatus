@@ -37,6 +37,8 @@ class DesktopPetPlugin(Plugin):
         super().__init__(kernel)
         self._pet_widget: Optional[DesktopPetWidget] = None
         self._initialized = False  # 标记是否完成首次定位
+        self._user_positioned = False  # 标记用户是否手动定位过
+        self._overlay_synced = False  # 标记气泡是否已同步到桌宠位置
         self._delayed_timers: list = []  # 跟踪延迟初始化定时器
         
         # 跟随Overlay移动的定时器
@@ -112,15 +114,22 @@ class DesktopPetPlugin(Plugin):
                     self.logger.error(f"桌宠素材文件不存在: {filepath}")
                     return
             
-            # 创建桌宠控件
+            # 创建桌宠控件（先隐藏，等位置设置好再显示）
             self._pet_widget = DesktopPetWidget(assets_dir)
+            self._pet_widget.hide()
             
             # 注册拖拽回调：拖桌宠时同步气泡位置
             self._pet_widget._on_drag_move_callback = self._on_pet_drag_move
+            # 注册拖拽结束回调：保存位置
+            self._pet_widget._on_drag_end_callback = self._save_pet_position
             
-            # 定位到Overlay旁边
-            self._initialized = False
-            self._position_next_to_overlay()
+            # 尝试恢复保存的位置，否则定位到Overlay旁边
+            self._restore_pet_position()
+            if not self._user_positioned:
+                self._initialized = False
+                self._position_next_to_overlay()
+            else:
+                self._initialized = True
             self._pet_widget.show()
             
             # 记录初始状态
@@ -205,6 +214,9 @@ class DesktopPetPlugin(Plugin):
         """根据Overlay位置同步桌宠位置（共享逻辑）"""
         try:
             if self._pet_widget and self.enabled and x is not None and y is not None:
+                # 用户手动定位过，不跟随
+                if self._user_positioned:
+                    return
                 self._position_next_to_overlay(x, y, width, height)
         except Exception as e:
             self.logger.error(f"桌宠插件: 同步Overlay位置失败: {e}")
@@ -279,10 +291,52 @@ class DesktopPetPlugin(Plugin):
         except Exception as e:
             self.logger.error(f"桌宠插件: 处理隐藏事件失败: {e}")
     
+    def _save_pet_position(self, x: int, y: int):
+        """保存桌宠位置到 config"""
+        self._kernel.config.set("desktop_pet.position", {"x": x, "y": y})
+        # 同时保存气泡位置
+        overlay_plugin = self.get_plugin("overlay")
+        if overlay_plugin:
+            ow = getattr(overlay_plugin, 'widget', None)
+            if ow:
+                self._kernel.config.set("desktop_pet.overlay_position", {
+                    "x": ow.pos().x(), "y": ow.pos().y()
+                })
+        self._kernel.config.save()
+        self._user_positioned = True
+        self.logger.info(f"桌宠位置已保存: ({x}, {y})")
+
+    def _restore_pet_position(self):
+        """从 config 恢复桌宠和气泡位置"""
+        if not self._pet_widget:
+            return
+        saved = self._kernel.config.get("desktop_pet.position")
+        if saved and "x" in saved and "y" in saved:
+            self._pet_widget.move(saved["x"], saved["y"])
+            self._user_positioned = True
+            # 恢复气泡位置
+            overlay_plugin = self.get_plugin("overlay")
+            if overlay_plugin and overlay_plugin.widget:
+                overlay_saved = self._kernel.config.get("desktop_pet.overlay_position")
+                if overlay_saved and "x" in overlay_saved:
+                    overlay_plugin.widget.move(overlay_saved["x"], overlay_saved["y"])
+                else:
+                    # 没有保存的气泡位置，从桌宠位置反算
+                    self._on_pet_drag_move(saved["x"], saved["y"])
+                self._overlay_synced = True
+                self._pet_widget.show()
+                self.logger.info(f"桌宠位置已恢复: ({saved['x']}, {saved['y']})")
+            else:
+                # overlay 未就绪，保持隐藏，等 _delayed_init 重试
+                self.logger.info(f"桌宠位置已保存，等待 overlay 就绪")
+
     def _follow_overlay(self):
         """跟随Overlay移动"""
         try:
             if not self._pet_widget:
+                return
+            # 用户手动定位过，不跟随
+            if self._user_positioned:
                 return
             # 拖拽中不跟随，避免和鼠标拖拽冲突
             if self._pet_widget._is_dragging:
@@ -301,6 +355,22 @@ class DesktopPetPlugin(Plugin):
         """延迟初始化：重新定位桌宠"""
         try:
             if self._pet_widget and self.enabled:
+                # 用户手动定位过，跳过定位但重试气泡同步
+                if self._user_positioned:
+                    self._initialized = True
+                    if not self._overlay_synced:
+                        overlay_plugin = self.get_plugin("overlay")
+                        if overlay_plugin and overlay_plugin.widget:
+                            # 先恢复气泡位置
+                            overlay_saved = self._kernel.config.get("desktop_pet.overlay_position")
+                            if overlay_saved and "x" in overlay_saved:
+                                overlay_plugin.widget.move(overlay_saved["x"], overlay_saved["y"])
+                            else:
+                                pos = self._pet_widget.pos()
+                                self._on_pet_drag_move(pos.x(), pos.y())
+                            self._overlay_synced = True
+                            self._pet_widget.show()
+                    return
                 # 强制让Overlay重新计算布局后再定位
                 overlay_plugin = self.get_plugin("overlay")
                 if overlay_plugin and overlay_plugin.widget:
@@ -324,6 +394,9 @@ class DesktopPetPlugin(Plugin):
                 # 更新桌宠状态
                 self._pet_widget.update_category(category, icon, title)
                 
+                # 用户手动定位过，不重新定位
+                if self._user_positioned:
+                    return
                 # 重新定位（Overlay可能被拖动了）
                 self._position_next_to_overlay()
         except Exception as e:

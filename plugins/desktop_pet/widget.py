@@ -64,6 +64,7 @@ class DesktopPetWidget(QWidget):
         
         # 外部回调：拖拽移动时通知（用于同步气泡位置）
         self._on_drag_move_callback = None
+        self._on_drag_end_callback = None
         
         # 窗口设置 - 无边框、置顶、透明背景（不加 Qt.Tool，Win11 鼠标事件会失效）
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
@@ -166,4 +167,8 @@ class DesktopPetWidget(QWidget):
                 self._drag_offset = None
                 # 切回拖拽前的状态
                 self._set_state(self._state_before_drag)
+                # 通知外部拖拽结束（用于保存位置）
+                if self._on_drag_end_callback:
+                    pos = self.pos()
+                    self._on_drag_end_callback(pos.x(), pos.y())
             event.accept()
