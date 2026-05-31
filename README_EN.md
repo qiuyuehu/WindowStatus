@@ -28,7 +28,7 @@
 
 ## Customize the Desktop Pet
 
-Create an `assets/pet/` folder next to `WindowStatus.exe` and drop in five character illustrations to change the pet's appearance:
+Replace the five character illustrations in `plugins/desktop_pet/assets/` to change the pet's appearance:
 
 | Filename | State |
 |----------|-------|
@@ -38,9 +38,7 @@ Create an `assets/pet/` folder next to `WindowStatus.exe` and drop in five chara
 | `walk.png` | Walking |
 | `drag.png` | Being dragged |
 
-Use transparent PNG images at 256x256 resolution. Keep all images the same size. Restart the program to apply — no repackaging needed.
-
-If custom assets are incomplete (missing files), the built-in default pet will be used automatically.
+Use transparent PNG images at 256x256 resolution. Keep all images the same size. Repackaging is required after replacing.
 
 ## Features
 
