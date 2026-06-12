@@ -81,6 +81,14 @@ DIALOG_STYLESHEET = """
     QPushButton:hover {
         background-color: #252525;
     }
+    QPushButton#primary {
+        background-color: #d97706;
+        color: #fff;
+        border: none;
+    }
+    QPushButton#primary:hover {
+        background-color: #b45309;
+    }
     QPushButton:disabled {
         background-color: #1e1e1e;
         color: #555;
@@ -149,6 +157,7 @@ class RuleEditorDialog(QDialog):
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
         save_btn = QPushButton("确定")
+        save_btn.setObjectName("primary")
         save_btn.clicked.connect(self._on_save)
         cancel_btn = QPushButton("取消")
         cancel_btn.clicked.connect(self.reject)
@@ -572,17 +581,7 @@ class SettingsDialog(QDialog):
         bottom_layout = QHBoxLayout()
         bottom_layout.addStretch()
         save_btn = QPushButton("保存")
-        save_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #d97706;
-                color: #121212;
-                font-weight: bold;
-                padding: 8px 24px;
-            }
-            QPushButton:hover {
-                background-color: #5EDDD4;
-            }
-        """)
+        save_btn.setObjectName("primary")
         save_btn.clicked.connect(self._on_save)
         cancel_btn = QPushButton("取消")
         cancel_btn.clicked.connect(self.reject)
