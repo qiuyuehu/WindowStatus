@@ -87,8 +87,8 @@ class TestConfig(unittest.TestCase):
         config = Config(self.config_path)
         
         # 设置嵌套配置
-        config.set("reminders.游戏.interval_minutes", 30)
-        self.assertEqual(config.get("reminders.游戏.interval_minutes"), 30)
+        config.set("categories.游戏.icon", "🎯")
+        self.assertEqual(config.get("categories.游戏.icon"), "🎯")
     
     def test_batch_update(self):
         """测试批量更新"""

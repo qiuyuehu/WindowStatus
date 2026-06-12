@@ -22,68 +22,71 @@ from PyQt5.QtGui import QFont
 
 DIALOG_STYLESHEET = """
     QDialog {
-        background-color: #1a1a2e;
-        color: white;
+        background-color: #121212;
+        color: #e8e8e8;
     }
     QListWidget {
-        background-color: #16213e;
-        color: white;
-        border: 1px solid #0f3460;
+        background-color: #1a1a1a;
+        color: #e8e8e8;
+        border: 1px solid #2a2a2a;
         outline: none;
     }
     QListWidget::item {
         padding: 6px 10px;
     }
     QListWidget::item:selected {
-        background-color: #0f3460;
+        background-color: #252525;
+        color: #a0a0a0;
     }
     QListWidget::item:hover {
-        background-color: #1a3a6e;
+        background-color: #222;
     }
     QTableWidget {
-        background-color: #16213e;
-        color: white;
-        border: 1px solid #0f3460;
-        gridline-color: #1a1a2e;
+        background-color: #1a1a1a;
+        color: #e8e8e8;
+        border: 1px solid #2a2a2a;
+        gridline-color: #1e1e1e;
     }
     QHeaderView::section {
-        background-color: #0f3460;
-        color: white;
+        background-color: #0f0f0f;
+        color: #e8e8e8;
         padding: 5px;
         border: none;
     }
     QTabWidget::pane {
-        border: 1px solid #16213e;
-        background-color: #1a1a2e;
+        border: 1px solid #2a2a2a;
+        background-color: #121212;
     }
     QTabBar::tab {
-        background-color: #16213e;
-        color: white;
+        background-color: #1a1a1a;
+        color: #999;
         padding: 8px 20px;
-        border: 1px solid #0f3460;
+        border: 1px solid #2a2a2a;
         border-bottom: none;
         min-width: 80px;
     }
     QTabBar::tab:selected {
-        background-color: #0f3460;
+        background-color: #121212;
+        color: #a0a0a0;
+        border-bottom: 2px solid #a0a0a0;
     }
     QPushButton {
-        background-color: #0f3460;
-        color: white;
-        border: none;
+        background-color: #1a1a1a;
+        color: #e8e8e8;
+        border: 1px solid #333;
         padding: 6px 14px;
         border-radius: 4px;
         min-width: 60px;
     }
     QPushButton:hover {
-        background-color: #1a4a8a;
+        background-color: #252525;
     }
     QPushButton:disabled {
-        background-color: #2a2a4a;
-        color: #666;
+        background-color: #1e1e1e;
+        color: #555;
     }
     QCheckBox {
-        color: white;
+        color: #e8e8e8;
         spacing: 6px;
     }
     QCheckBox::indicator {
@@ -91,17 +94,17 @@ DIALOG_STYLESHEET = """
         height: 16px;
     }
     QCheckBox::indicator:unchecked {
-        background-color: #16213e;
-        border: 1px solid #0f3460;
+        background-color: #1a1a1a;
+        border: 1px solid #333;
         border-radius: 3px;
     }
     QCheckBox::indicator:checked {
-        background-color: #4ECDC4;
-        border: 1px solid #4ECDC4;
+        background-color: #d97706;
+        border: 1px solid #d97706;
         border-radius: 3px;
     }
     QLabel {
-        color: #b8b8b8;
+        color: #999;
     }
 """
 
@@ -490,9 +493,9 @@ class GeneralTab(QWidget):
                 self.theme_combo.setCurrentIndex(self.theme_combo.count() - 1)
         self.theme_combo.setStyleSheet("""
             QComboBox {
-                background-color: #16213e;
+                background-color: #1a1a1a;
                 color: white;
-                border: 1px solid #0f3460;
+                border: 1px solid #2a2a2a;
                 padding: 6px 10px;
                 border-radius: 4px;
                 min-width: 200px;
@@ -501,9 +504,9 @@ class GeneralTab(QWidget):
                 border: none;
             }
             QComboBox QAbstractItemView {
-                background-color: #16213e;
+                background-color: #1a1a1a;
                 color: white;
-                selection-background-color: #0f3460;
+                selection-background-color: #252525;
             }
         """)
         layout.addWidget(self.theme_combo)
@@ -571,8 +574,8 @@ class SettingsDialog(QDialog):
         save_btn = QPushButton("保存")
         save_btn.setStyleSheet("""
             QPushButton {
-                background-color: #4ECDC4;
-                color: #1a1a2e;
+                background-color: #d97706;
+                color: #121212;
                 font-weight: bold;
                 padding: 8px 24px;
             }

@@ -88,7 +88,6 @@ class PluginManager:
             'plugins.rules.plugin',
             'plugins.about.plugin',
             'plugins.settings.plugin',
-            'plugins.reminders.plugin',
             'plugins.desktop_pet.plugin',
         ]
         

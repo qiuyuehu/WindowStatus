@@ -224,16 +224,7 @@ DEFAULT_CONFIG = {
         "rules": True,
         "about": True,
         "settings": True,
-        "reminders": True,
         "desktop_pet": False
-    },
-    "reminders": {
-        "游戏": {"enabled": True, "interval_minutes": 60, "message": "已经连续玩了 {minutes} 分钟，该活动活动了！"},
-        "办公": {"enabled": True, "interval_minutes": 45, "message": "已经连续办公 {minutes} 分钟，休息一下吧！"},
-        "摸鱼": {"enabled": True, "interval_minutes": 30, "message": "已经连续摸鱼 {minutes} 分钟了，休息一下眼睛吧！"},
-        "开发": {"enabled": True, "interval_minutes": 45, "message": "已经连续开发 {minutes} 分钟，站起来活动活动！"},
-        "工具": {"enabled": True, "interval_minutes": 45, "message": "已经连续使用工具 {minutes} 分钟，喝口水休息一下！"},
-        "_default": {"enabled": False, "interval_minutes": 45, "message": "已经连续工作 {minutes} 分钟，喝口水休息一下！"}
     },
     "logging": {
         "level": "INFO",

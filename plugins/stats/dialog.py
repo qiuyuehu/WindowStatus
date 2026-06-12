@@ -26,22 +26,22 @@ DEFAULT_ICON = "❓"
 
 STYLESHEET = """
 QDialog {
-    background-color: #1a1a2e;
-    color: white;
+    background-color: #121212;
+    color: #e8e8e8;
 }
 QTabWidget::pane {
-    border: 2px solid #3a3a5e;
-    background-color: #1a1a2e;
+    border: 1px solid #2a2a2a;
+    background-color: #121212;
     border-radius: 8px;
 }
 QTabBar {
-    background-color: #1a1a2e;
+    background-color: #121212;
 }
 QTabBar::tab {
-    background-color: #16213e;
-    color: #aaa;
+    background-color: #1a1a1a;
+    color: #999;
     padding: 8px 18px;
-    border: 1px solid #2a2a4e;
+    border: 1px solid #2a2a2a;
     border-bottom: none;
     border-top-left-radius: 6px;
     border-top-right-radius: 6px;
@@ -49,37 +49,37 @@ QTabBar::tab {
     margin-right: 2px;
 }
 QTabBar::tab:selected {
-    background-color: #1a1a2e;
-    color: white;
-    border-bottom: 2px solid #4ecdc4;
+    background-color: #121212;
+    color: #a0a0a0;
+    border-bottom: 2px solid #a0a0a0;
 }
 QTableWidget {
-    background-color: #16213e;
-    color: white;
+    background-color: #1a1a1a;
+    color: #e8e8e8;
     border: none;
-    gridline-color: #1a1a2e;
+    gridline-color: #1e1e1e;
     font-size: 12px;
 }
 QTableWidget::item {
     padding: 4px 8px;
 }
 QHeaderView::section {
-    background-color: #0f3460;
-    color: white;
+    background-color: #0f0f0f;
+    color: #e8e8e8;
     padding: 6px 8px;
     border: none;
     font-size: 12px;
 }
 QPushButton {
-    background-color: #0f3460;
-    color: white;
-    border: none;
+    background-color: #1a1a1a;
+    color: #e8e8e8;
+    border: 1px solid #333;
     padding: 8px 20px;
     border-radius: 6px;
     font-size: 13px;
 }
 QPushButton:hover {
-    background-color: #1a4a8a;
+    background-color: #252525;
 }
 """
 
@@ -103,23 +103,23 @@ class SummaryCard(QWidget):
         # 副标题行（row 0）
         self._total_sub = QLabel("今日总时长")
         self._total_sub.setStyleSheet(
-            "font-size: 17px; font-weight: bold; color: #aaa;")
+            "font-size: 17px; font-weight: bold; color: #999;")
         self._total_sub.setAlignment(Qt.AlignCenter)
 
         self._top_sub = QLabel("最常用分类")
         self._top_sub.setStyleSheet(
-            "font-size: 17px; font-weight: bold; color: #aaa;")
+            "font-size: 17px; font-weight: bold; color: #999;")
         self._top_sub.setAlignment(Qt.AlignCenter)
 
         self._compare_sub = QLabel("vs 昨天")
         self._compare_sub.setStyleSheet(
-            "font-size: 17px; font-weight: bold; color: #aaa;")
+            "font-size: 17px; font-weight: bold; color: #999;")
         self._compare_sub.setAlignment(Qt.AlignCenter)
 
         # 主数据行（row 1）
         self._total_label = QLabel(format_duration(total_seconds))
         self._total_label.setStyleSheet(
-            "font-size: 14px; color: white;")
+            "font-size: 14px; color: #e8e8e8;")
         self._total_label.setAlignment(Qt.AlignCenter)
 
         if top_category:
@@ -128,14 +128,14 @@ class SummaryCard(QWidget):
             center_text = "暂无数据"
         self._top_label = QLabel(center_text)
         self._top_label.setStyleSheet(
-            "font-size: 14px; color: white;")
+            "font-size: 14px; color: #e8e8e8;")
         self._top_label.setAlignment(Qt.AlignCenter)
 
         if yesterday_total > 0 and total_seconds > 0:
             diff_pct = (total_seconds - yesterday_total) / yesterday_total * 100
             if diff_pct >= 0:
                 compare_text = f"比昨天多 {diff_pct:.0f}%"
-                color = "#4ecdc4"
+                color = "#d97706"
             else:
                 compare_text = f"比昨天少 {abs(diff_pct):.0f}%"
                 color = "#ff6b6b"
@@ -171,12 +171,12 @@ class SummaryCard(QWidget):
         """绘制卡片背景和分隔线"""
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
-        painter.setBrush(QColor("#16213e"))
+        painter.setBrush(QColor("#1a1a1a"))
         painter.setPen(Qt.NoPen)
         painter.drawRoundedRect(self.rect(), 12, 12)
 
         # 三列之间的分隔线（比例定位，离两侧文字等距）
-        painter.setPen(QPen(QColor("#5a5a7e"), 1))
+        painter.setPen(QPen(QColor("#333"), 1))
         w = self.width()
         h = self.height()
         margin_top = 0
@@ -235,14 +235,14 @@ class DonutChart(QWidget):
 
         if total == 0 or not self._data:
             # 空数据：灰色空圆环
-            pen = QPen(QColor(60, 60, 80), outer_r - inner_r)
+            pen = QPen(QColor(42, 42, 42), outer_r - inner_r)
             pen.setCapStyle(Qt.FlatCap)
             painter.setPen(pen)
             painter.setBrush(Qt.NoBrush)
             mid_r = (outer_r + inner_r) / 2
             painter.drawEllipse(QPointF(cx, cy), mid_r, mid_r)
             # 中间文字
-            painter.setPen(QColor("#888"))
+            painter.setPen(QColor("#666"))
             font = QFont()
             font.setPointSize(10)
             painter.setFont(font)
@@ -286,14 +286,14 @@ class DonutChart(QWidget):
             start_angle += span_angle + int(gap_angle * 16)
 
         # 中间总时长
-        painter.setPen(QColor("#ccc"))
+        painter.setPen(QColor("#e8e8e8"))
         font = QFont()
         font.setPointSize(11)
         font.setBold(True)
         painter.setFont(font)
         painter.drawText(QRectF(0, 60, 180, 30),
                          Qt.AlignCenter, format_duration(total))
-        painter.setPen(QColor("#888"))
+        painter.setPen(QColor("#999"))
         font.setPointSize(9)
         font.setBold(False)
         painter.setFont(font)
@@ -327,7 +327,7 @@ class CategoryRow(QWidget):
 
         # emoji + 分类名
         name_label = QLabel(f"{icon}  {name}")
-        name_label.setStyleSheet("font-size: 13px; color: white;")
+        name_label.setStyleSheet("font-size: 13px; color: #e8e8e8;")
         name_label.setFixedWidth(100)
         name_label.setAlignment(Qt.AlignVCenter)
 
@@ -338,7 +338,7 @@ class CategoryRow(QWidget):
 
         # 时长
         dur_label = QLabel(format_duration(duration))
-        dur_label.setStyleSheet("font-size: 12px; color: #ccc;")
+        dur_label.setStyleSheet("font-size: 12px; color: #999;")
         dur_label.setFixedWidth(70)
         dur_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
 
@@ -348,7 +348,7 @@ class CategoryRow(QWidget):
         else:
             pct_text = f"{percent:.0f}%"
         pct_label = QLabel(pct_text)
-        pct_label.setStyleSheet("font-size: 12px; color: #888;")
+        pct_label.setStyleSheet("font-size: 12px; color: #666;")
         pct_label.setFixedWidth(40)
         pct_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
 
@@ -374,7 +374,7 @@ class _ProgressBar(QWidget):
         h = self.height()
 
         # 背景条
-        painter.setBrush(QColor("#2a2a4e"))
+        painter.setBrush(QColor("#2a2a2a"))
         painter.setPen(Qt.NoPen)
         painter.drawRoundedRect(0, 0, w, h, 4, 4)
 
@@ -391,7 +391,7 @@ def _paint_card_bg(widget, event):
     """绘制卡片背景（供 lambda 复用）"""
     painter = QPainter(widget)
     painter.setRenderHint(QPainter.Antialiasing)
-    painter.setBrush(QColor("#16213e"))
+    painter.setBrush(QColor("#1a1a1a"))
     painter.setPen(Qt.NoPen)
     painter.drawRoundedRect(widget.rect(), 12, 12)
 
@@ -554,16 +554,16 @@ class StatsDialog(QDialog):
         if total > 0:
             total_label = QLabel(format_duration(total))
             total_label.setStyleSheet(
-                "font-size: 20px; font-weight: bold; color: white;")
+                "font-size: 20px; font-weight: bold; color: #e8e8e8;")
             summary_layout.addWidget(total_label)
             sub_label = QLabel("总时长")
             sub_label.setStyleSheet(
-                "font-size: 11px; color: #888; margin-left: 8px;")
+                "font-size: 11px; color: #999; margin-left: 8px;")
             summary_layout.addWidget(sub_label)
         else:
             empty_label = QLabel("暂无数据")
             empty_label.setStyleSheet(
-                "font-size: 14px; color: #888;")
+                "font-size: 14px; color: #999;")
             summary_layout.addWidget(empty_label)
 
         summary_layout.addStretch()
@@ -622,17 +622,17 @@ class StatsDialog(QDialog):
         if record_count > 0:
             count_label = QLabel(f"{record_count} 条记录")
             count_label.setStyleSheet(
-                "font-size: 20px; font-weight: bold; color: white;")
+                "font-size: 20px; font-weight: bold; color: #e8e8e8;")
             summary_layout.addWidget(count_label)
 
             dur_label = QLabel(format_duration(total_duration))
             dur_label.setStyleSheet(
-                "font-size: 20px; font-weight: bold; color: white; margin-left: 24px;")
+                "font-size: 20px; font-weight: bold; color: #e8e8e8; margin-left: 24px;")
             summary_layout.addWidget(dur_label)
         else:
             empty_label = QLabel("暂无数据")
             empty_label.setStyleSheet(
-                "font-size: 14px; color: #888;")
+                "font-size: 14px; color: #999;")
             summary_layout.addWidget(empty_label)
 
         summary_layout.addStretch()

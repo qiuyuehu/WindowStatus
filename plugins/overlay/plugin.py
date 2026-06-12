@@ -78,6 +78,12 @@ class OverlayWidget(QWidget):
         self.duration_timer.timeout.connect(self._update_duration)
         self.duration_timer.start(1000)
 
+        # TOPMOST 维护定时器（每 3 秒用 Win32 SetWindowPos 强制刷新置顶状态）
+        # 解决 Windows 系统抢占 TOPMOST、setWindowFlags 重建 HWND 后丢失置顶等问题
+        self._topmost_timer = QTimer()
+        self._topmost_timer.timeout.connect(self._maintain_topmost)
+        self._topmost_timer.start(3000)
+
         # 应用透明度
         self.setWindowOpacity(config.get("opacity", 0.9))
 
@@ -191,6 +197,27 @@ class OverlayWidget(QWidget):
             self.setWindowFlags(self.windowFlags() & ~Qt.WindowStaysOnTopHint)
         self.show()
         self.config["always_on_top"] = enabled
+
+        # 启停 TOPMOST 维护定时器
+        if enabled:
+            self._topmost_timer.start(3000)
+            self._maintain_topmost()  # 立即刷新一次
+        else:
+            self._topmost_timer.stop()
+
+    def _maintain_topmost(self):
+        """Win32 强制刷新 TOPMOST 状态（防止 Windows 系统抢占置顶）"""
+        if not self.isVisible():
+            return
+        if not self.config.get("always_on_top", True):
+            return
+        try:
+            import ctypes
+            hwnd = int(self.winId())
+            # HWND_TOPMOST = -1, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE = 0x0003
+            ctypes.windll.user32.SetWindowPos(hwnd, -1, 0, 0, 0, 0, 0x0003)
+        except OSError:
+            pass
 
 
 class OverlayPlugin(Plugin):
@@ -377,7 +404,13 @@ class OverlayPlugin(Plugin):
         try:
             import ctypes
             hwnd = int(self.widget.winId())
-            ctypes.windll.user32.ShowWindow(hwnd, 5 if visible else 0)
+            if visible:
+                # 用 SetWindowPos 显示并强制 TOPMOST（ShowWindow 不保证维持置顶）
+                # HWND_TOPMOST = -1, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW = 0x0001 | 0x0002 | 0x0040 = 0x0043
+                ctypes.windll.user32.SetWindowPos(hwnd, -1, 0, 0, 0, 0, 0x0043)
+            else:
+                # 隐藏窗口：SW_HIDE = 0
+                ctypes.windll.user32.ShowWindow(hwnd, 0)
         except OSError:
             pass
 

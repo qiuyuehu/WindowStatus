@@ -71,6 +71,12 @@ class DesktopPetWidget(QWidget):
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setWindowTitle("WindowStatus - 桌宠")
         self.setFixedSize(256, 256)
+
+        # TOPMOST 维护定时器（每 3 秒用 Win32 SetWindowPos 强制刷新置顶状态）
+        self._always_on_top = True  # 跟踪置顶状态
+        self._topmost_timer = QTimer()
+        self._topmost_timer.timeout.connect(self._maintain_topmost)
+        self._topmost_timer.start(3000)
         
         # 加载所有状态的图片
         self._images = {}
@@ -123,6 +129,29 @@ class DesktopPetWidget(QWidget):
             painter = QPainter(self)
             painter.setRenderHint(QPainter.SmoothPixmapTransform)
             painter.drawPixmap(0, 0, self._current_pixmap)
+
+    def _maintain_topmost(self):
+        """Win32 强制刷新 TOPMOST 状态（防止 Windows 系统抢占置顶）"""
+        if not self.isVisible():
+            return
+        if not self._always_on_top:
+            return
+        try:
+            import ctypes
+            hwnd = int(self.winId())
+            # HWND_TOPMOST = -1, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE = 0x0001 | 0x0002 | 0x0010 = 0x0003
+            ctypes.windll.user32.SetWindowPos(hwnd, -1, 0, 0, 0, 0, 0x0003)
+        except OSError:
+            pass
+
+    def set_always_on_top(self, enabled: bool):
+        """设置置顶状态（供插件层调用）"""
+        self._always_on_top = enabled
+        if enabled:
+            self._topmost_timer.start(3000)
+            self._maintain_topmost()  # 立即刷新一次
+        else:
+            self._topmost_timer.stop()
     
     def _on_long_press(self):
         """长按确认 - 进入拖拽模式"""

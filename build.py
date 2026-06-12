@@ -113,7 +113,6 @@ a = Analysis(
         'plugins.rules', 'plugins.rules.plugin',
         'plugins.about', 'plugins.about.plugin',
         'plugins.settings', 'plugins.settings.plugin', 'plugins.settings.dialog',
-        'plugins.reminders', 'plugins.reminders.plugin',
         'plugins.desktop_pet', 'plugins.desktop_pet.plugin',
         'plugins.desktop_pet.widget', 'plugins.desktop_pet.state_machine',
     ],

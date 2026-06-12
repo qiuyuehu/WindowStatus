@@ -264,14 +264,9 @@ class DesktopPetPlugin(Plugin):
             else:
                 self._pet_widget.setWindowFlags(self._pet_widget.windowFlags() & ~Qt.WindowStaysOnTopHint)
             self._pet_widget.show()
-            # 气泡也要同步
-            if self._pet_widget._bubble:
-                if enabled:
-                    self._pet_widget._bubble.setWindowFlags(self._pet_widget._bubble.windowFlags() | Qt.WindowStaysOnTopHint)
-                else:
-                    self._pet_widget._bubble.setWindowFlags(self._pet_widget._bubble.windowFlags() & ~Qt.WindowStaysOnTopHint)
-                if self._pet_widget._bubble.isVisible():
-                    self._pet_widget._bubble.show()
+            # 同步桌宠的 TOPMOST 维护定时器
+            self._pet_widget.set_always_on_top(enabled)
+            # 气泡由 OverlayPlugin 自行监听 TOGGLE_TOP 处理，无需这里同步
         except Exception as e:
             self.logger.error(f"桌宠插件: 处理置顶切换事件失败: {e}")
 

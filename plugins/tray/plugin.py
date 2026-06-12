@@ -123,16 +123,16 @@ class TrayPlugin(Plugin):
         self.menu = QMenu()
         self.menu.setStyleSheet("""
             QMenu {
-                background-color: #1a1a2e;
-                color: white;
-                border: 1px solid #16213e;
+                background-color: #1a1a1a;
+                color: #e8e8e8;
+                border: 1px solid #2a2a2a;
                 padding: 5px;
             }
             QMenu::item {
                 padding: 5px 20px;
             }
             QMenu::item:selected {
-                background-color: #16213e;
+                background-color: #252525;
             }
         """)
         
