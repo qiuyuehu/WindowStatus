@@ -14,6 +14,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
+from plugins.utils import CustomTabBar, FramelessDialog
 
 
 # ============================================================
@@ -22,7 +23,6 @@ from PyQt5.QtGui import QFont
 
 DIALOG_STYLESHEET = """
     QDialog {
-        background-color: #121212;
         color: #e8e8e8;
     }
     QListWidget {
@@ -54,21 +54,8 @@ DIALOG_STYLESHEET = """
         border: none;
     }
     QTabWidget::pane {
-        border: 1px solid #2a2a2a;
+        border: none;
         background-color: #121212;
-    }
-    QTabBar::tab {
-        background-color: #1a1a1a;
-        color: #999;
-        padding: 8px 20px;
-        border: 1px solid #2a2a2a;
-        border-bottom: none;
-        min-width: 80px;
-    }
-    QTabBar::tab:selected {
-        background-color: #121212;
-        color: #a0a0a0;
-        border-bottom: 2px solid #a0a0a0;
     }
     QPushButton {
         background-color: #1a1a1a;
@@ -531,7 +518,7 @@ class GeneralTab(QWidget):
 # 设置主窗口
 # ============================================================
 
-class SettingsDialog(QDialog):
+class SettingsDialog(FramelessDialog):
     """
     设置窗口
 
@@ -544,24 +531,20 @@ class SettingsDialog(QDialog):
                  plugins_info: Optional[List[dict]] = None,
                  current_theme: str = "dark",
                  parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("WindowStatus 设置")
-        self.setMinimumSize(720, 520)
+        super().__init__(title="WindowStatus 设置", parent=parent)
+        self.setFixedSize(720, 520)
         self.setStyleSheet(DIALOG_STYLESHEET)
 
         self._on_save_callback: Optional[Callable] = None
 
-        layout = QVBoxLayout()
+        # 使用 FramelessDialog 的 content_layout
+        layout = self.content_layout
+        layout.setContentsMargins(0, 8, 0, 8)
         layout.setSpacing(10)
-
-        # 标题
-        title = QLabel("WindowStatus 设置")
-        title.setFont(QFont("Microsoft YaHei UI", 14, QFont.Bold))
-        title.setStyleSheet("color: white;")
-        layout.addWidget(title)
 
         # 标签页
         tabs = QTabWidget()
+        tabs.setTabBar(CustomTabBar())
 
         self.general_tab = GeneralTab(current_theme)
         tabs.addTab(self.general_tab, "通用")
@@ -588,8 +571,6 @@ class SettingsDialog(QDialog):
         bottom_layout.addWidget(save_btn)
         bottom_layout.addWidget(cancel_btn)
         layout.addLayout(bottom_layout)
-
-        self.setLayout(layout)
 
     def set_on_save(self, callback: Callable):
         """设置保存回调"""

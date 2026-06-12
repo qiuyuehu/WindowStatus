@@ -16,7 +16,7 @@ from PyQt5.QtWidgets import (
     QSizePolicy, QMessageBox, QFileDialog
 )
 
-from plugins.utils import format_duration, format_timestamp
+from plugins.utils import format_duration, format_timestamp, CustomTabBar, FramelessDialog
 
 # 默认图标（分类没有配置 icon 时使用）
 DEFAULT_ICON = "❓"
@@ -26,32 +26,11 @@ DEFAULT_ICON = "❓"
 
 STYLESHEET = """
 QDialog {
-    background-color: #121212;
     color: #e8e8e8;
 }
 QTabWidget::pane {
-    border: 1px solid #2a2a2a;
+    border: none;
     background-color: #121212;
-    border-radius: 8px;
-}
-QTabBar {
-    background-color: #121212;
-}
-QTabBar::tab {
-    background-color: #1a1a1a;
-    color: #999;
-    padding: 10px 22px;
-    border: 1px solid #2a2a2a;
-    border-bottom: none;
-    border-top-left-radius: 8px;
-    border-top-right-radius: 8px;
-    font-size: 13px;
-    margin-right: 4px;
-}
-QTabBar::tab:selected {
-    background-color: #121212;
-    color: #a0a0a0;
-    border-bottom: 2px solid #a0a0a0;
 }
 QTableWidget {
     background-color: #1a1a1a;
@@ -111,17 +90,17 @@ class SummaryCard(QWidget):
         # 副标题行（row 0）
         self._total_sub = QLabel("今日总时长")
         self._total_sub.setStyleSheet(
-            "font-size: 12px; color: #666;")
+            "font-size: 14px; font-weight: bold; color: #999;")
         self._total_sub.setAlignment(Qt.AlignCenter)
 
         self._top_sub = QLabel("最常用分类")
         self._top_sub.setStyleSheet(
-            "font-size: 12px; color: #666;")
+            "font-size: 14px; font-weight: bold; color: #999;")
         self._top_sub.setAlignment(Qt.AlignCenter)
 
         self._compare_sub = QLabel("vs 昨天")
         self._compare_sub.setStyleSheet(
-            "font-size: 12px; color: #666;")
+            "font-size: 14px; font-weight: bold; color: #999;")
         self._compare_sub.setAlignment(Qt.AlignCenter)
 
         # 主数据行（row 1）
@@ -300,7 +279,7 @@ class DonutChart(QWidget):
         font.setBold(True)
         painter.setFont(font)
         painter.drawText(QRectF(0, 60, 180, 30),
-                         Qt.AlignCenter, format_duration(total))
+                         Qt.AlignCenter, f"{total // 3600}:{(total % 3600) // 60:02d}:{total % 60:02d}")
         painter.setPen(QColor("#999"))
         font.setPointSize(9)
         font.setBold(False)
@@ -315,12 +294,12 @@ class CategoryRow(QWidget):
     """单行分类：emoji + 名称 + 进度条 + 时长 + 百分比"""
 
     # 进度条最小宽度（像素），保证极小占比也能看到
-    MIN_BAR_WIDTH = 6
+    MIN_BAR_WIDTH = 4
 
     def __init__(self, icon: str, name: str, duration: int,
                  percent: float, color: QColor, parent=None):
         super().__init__(parent)
-        self.setFixedHeight(48)
+        self.setFixedHeight(36)
 
         self._icon = icon
         self._name = name
@@ -342,7 +321,7 @@ class CategoryRow(QWidget):
         # 进度条（用自绘 widget）
         self._bar = _ProgressBar(percent, color)
         self._bar.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        self._bar.setFixedHeight(10)
+        self._bar.setFixedHeight(8)
 
         # 时长
         dur_label = QLabel(format_duration(duration))
@@ -356,7 +335,7 @@ class CategoryRow(QWidget):
         else:
             pct_text = f"{percent:.0f}%"
         pct_label = QLabel(pct_text)
-        pct_label.setStyleSheet("font-size: 12px; color: #666;")
+        pct_label.setStyleSheet("font-size: 14px; font-weight: bold; color: #999;")
         pct_label.setFixedWidth(40)
         pct_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
 
@@ -382,13 +361,13 @@ class _ProgressBar(QWidget):
         h = self.height()
 
         # 背景条
-        painter.setBrush(QColor("#252525"))
+        painter.setBrush(QColor("#2a2a2a"))
         painter.setPen(Qt.NoPen)
         painter.drawRoundedRect(0, 0, w, h, 4, 4)
 
         # 填充条
         if self._percent > 0:
-            fill_w = max(6, int(w * self._percent / 100))
+            fill_w = max(4, int(w * self._percent / 100))
             painter.setBrush(self._color)
             painter.drawRoundedRect(0, 0, fill_w, h, 4, 4)
 
@@ -404,7 +383,7 @@ def _paint_card_bg(widget, event):
     painter.drawRoundedRect(widget.rect(), 12, 12)
 
 
-class StatsDialog(QDialog):
+class StatsDialog(FramelessDialog):
     """
     使用统计弹窗 — Apple Screen Time 风格
 
@@ -422,8 +401,7 @@ class StatsDialog(QDialog):
                  export_csv_fn: Optional[Callable] = None,
                  export_json_fn: Optional[Callable] = None,
                  parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("WindowStatus 使用统计")
+        super().__init__(title="WindowStatus 使用统计", parent=parent)
         self.setFixedSize(750, 600)
         self.setStyleSheet(STYLESHEET)
 
@@ -440,13 +418,14 @@ class StatsDialog(QDialog):
         # 计算昨日总时长
         self._yesterday_total = sum(d for _, d in self._yesterday_stats)
 
-        # 主布局
-        main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(0, 8, 0, 8)
+        # 使用 FramelessDialog 的 content_layout
+        main_layout = self.content_layout
+        main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
 
-        # Tab
+        # Tab（使用自绘标签栏）
         tabs = QTabWidget()
+        tabs.setTabBar(CustomTabBar())
         tabs.addTab(self._create_stats_tab(), "今日统计")
         tabs.addTab(self._create_stats_tab_generic(
             self._week_stats), "本周统计")
@@ -522,7 +501,7 @@ class StatsDialog(QDialog):
         list_container = QWidget()
         list_layout = QVBoxLayout(list_container)
         list_layout.setContentsMargins(0, 0, 0, 0)
-        list_layout.setSpacing(10)
+        list_layout.setSpacing(8)
 
         for category, duration in self._stats_data:
             percent = (duration / total_seconds * 100
@@ -591,7 +570,7 @@ class StatsDialog(QDialog):
         list_container = QWidget()
         list_layout = QVBoxLayout(list_container)
         list_layout.setContentsMargins(0, 0, 0, 0)
-        list_layout.setSpacing(10)
+        list_layout.setSpacing(8)
 
         for category, duration in data:
             percent = (duration / total * 100 if total > 0 else 0)
