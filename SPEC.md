@@ -1,8 +1,8 @@
 # WindowStatus 项目规格文档
 
-> 最后更新：2026-06-07-22:00
-> 基于 devlog 更新至：2026-06-07
-> 当前版本：v3.3.4
+> 最后更新：2026-06-13-08:30
+> 基于 devlog 更新至：2026-06-13
+> 当前版本：v3.4.0
 > 总代码行数：~8000 行（37 个 Python 文件 + 7 个测试文件）
 
 ---
@@ -64,7 +64,7 @@ WindowStatus/
 │   └── plugin_manager.py      # PluginManager 插件加载/卸载（434行）
 ├── plugins/                   # 插件层（8个插件）
 │   ├── base.py                # Plugin 基类（130行）
-│   ├── utils.py               # 插件工具函数
+│   ├── utils.py               # 插件工具函数 + ToggleSwitch 组件
 │   ├── monitor/plugin.py      # 窗口监控（282行）
 │   ├── overlay/plugin.py      # 悬浮气泡（386行）
 │   ├── desktop_pet/
@@ -176,10 +176,10 @@ class Plugin:
 | rules | rules/plugin.py | 243 | ✅ | 窗口标题/进程名 → 分类匹配 |
 | overlay | overlay/plugin.py | 386 | ✅ | 悬浮气泡（QPainter 绘制，支持亮色/暗色主题） |
 | desktop_pet | desktop_pet/plugin.py + widget.py | 408+ | ❌ | 桌宠（图片显示、拖拽、位置记忆、跟随气泡） |
-| stats | stats/plugin.py + dialog.py | 1039+705 | ✅ | 使用统计（SQLite 存储 + Apple 风格统计弹窗） |
-| settings | settings/plugin.py + dialog.py | 604 | ✅ | 设置页面（规则编辑、主题切换） |
-| tray | tray/plugin.py | 356 | ✅ | 系统托盘菜单和通知 |
-| about | about/plugin.py | — | ✅ | 关于页面 |
+| stats | stats/plugin.py + dialog.py | 1039+705 | ✅ | 使用统计（SQLite 存储 + Apple 风格统计弹窗 + 周/月摘要卡片） |
+| settings | settings/plugin.py + dialog.py | 604 | ✅ | 设置页面（侧边栏布局、toggle 开关、规则编辑、插件管理） |
+| tray | tray/plugin.py | 236 | ✅ | 系统托盘菜单（精简：显示/隐藏/置顶/统计/设置/重启/退出） |
+| about | about/plugin.py | — | ✅ | 关于页面（FramelessDialog 深色标题栏） |
 
 ### 5.3 事件流
 
@@ -232,6 +232,7 @@ tray → main（通过事件委托）
 - 小气泡连接：半径 3px 的 drawEllipse，位于大气泡右下角
 - 整体边界检测：气泡 + 桌宠作为整体受屏幕边界约束
 - 位置可拖拽，记住位置（保存到 config）
+- TOPMOST 维护：1 秒定时器 + SetWindowPos(0x0203)
 
 ### 7.2 桌宠（desktop_pet/plugin.py + widget.py）
 
@@ -240,14 +241,31 @@ tray → main（通过事件委托）
 - 位置记忆：退出时保存坐标到 config，启动时恢复
 - 状态保护：拖拽中忽略分类匹配事件，避免状态闪烁
 - 跟随气泡：气泡移动时桌宠自动跟随
+- TOPMOST 维护：1 秒定时器 + SetWindowPos(0x0203)
 
 ### 7.3 统计弹窗（stats/dialog.py）
 
-- Apple Screen Time 风格
-- SummaryCard：三列等分布局（QGridLayout），分隔线用 QPainter 绘制
-- DonutChart：QPainter 自绘环形图（180×180），FlatCap，2px 间隙
+- Apple Screen Time 风格，窗口 750×520
+- SummaryCard：三列等分布局（QGridLayout），分隔线与 grid 列对齐
+- DonutChart：QPainter 自绘环形图（180×180），FlatCap，2px 间隙，WA_TranslucentBackground
 - CategoryRow：emoji + 名称 + 圆角进度条 + 时长 + 百分比
-- 窗口固定 750×600，不可拉伸
+- 周/月 tab 带三列摘要卡片（总时长 + 最常用分类 + vs 上周/上月）
+- 参数化 SummaryCard（total_label/compare_label/compare_prefix）
+
+### 7.4 设置弹窗（settings/dialog.py）
+
+- FramelessDialog 无边框圆角弹窗，720×580
+- 通用 tab：侧边栏（通用设置/外观/通知）+ QStackedWidget
+- ToggleSwitch 自绘组件（40×22 轨道 + 18×18 白色圆形滑块）
+- 基本设置：开机自启/关闭时最小化到托盘/窗口置顶
+- 悬浮窗：透明度/空闲检测
+- 数据管理：导出CSV/JSON/关于
+- 插件管理 tab：ToggleSwitch 替代 QCheckBox
+
+### 7.5 关于弹窗（about/plugin.py）
+
+- 继承 FramelessDialog，深色标题栏
+- 配色：#121212 底色 + #d97706 琥珀强调
 
 ---
 
@@ -389,6 +407,7 @@ python build.py
 | v3.3.2 | 2026-05-30 | 桌宠拖拽 + 进程内重启 + 删除气泡拖拽 |
 | v3.3.4 | 2026-05-31 | 统计界面重做 + 桌宠记住位置 + SummaryCard 重构 |
 | — | 2026-06-03 | 删除 Reminders 插件 |
+| v3.4.0 | 2026-06-13 | 视觉重设计（暗色配色/自绘组件/设置侧边栏/功能迁移） |
 
 ---
 
