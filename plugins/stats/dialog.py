@@ -74,13 +74,17 @@ QPushButton#primary:hover {
 # ── 摘要卡片 ────────────────────────────────────────────────────
 
 class SummaryCard(QWidget):
-    """顶部摘要卡片：今日总时长 / 最常用分类 / 和昨天对比"""
+    """顶部摘要卡片：总时长 / 最常用分类 / 和上期对比"""
 
     def __init__(self, total_seconds: int, top_category: str,
                  top_icon: str, top_percent: float,
-                 yesterday_total: int, parent=None):
+                 compare_total: int,
+                 total_label: str = "今日总时长",
+                 compare_label: str = "vs 昨天",
+                 compare_prefix: str = "比昨天",
+                 parent=None):
         super().__init__(parent)
-        self.setFixedHeight(100)
+        self.setFixedHeight(80)
 
         from PyQt5.QtWidgets import QGridLayout, QLayoutItem
         grid = QGridLayout(self)
@@ -88,7 +92,7 @@ class SummaryCard(QWidget):
         grid.setSpacing(0)
 
         # 副标题行（row 0）
-        self._total_sub = QLabel("今日总时长")
+        self._total_sub = QLabel(total_label)
         self._total_sub.setStyleSheet(
             "font-size: 14px; font-weight: bold; color: #999;")
         self._total_sub.setAlignment(Qt.AlignCenter)
@@ -98,55 +102,55 @@ class SummaryCard(QWidget):
             "font-size: 14px; font-weight: bold; color: #999;")
         self._top_sub.setAlignment(Qt.AlignCenter)
 
-        self._compare_sub = QLabel("vs 昨天")
+        self._compare_sub = QLabel(compare_label)
         self._compare_sub.setStyleSheet(
             "font-size: 14px; font-weight: bold; color: #999;")
         self._compare_sub.setAlignment(Qt.AlignCenter)
 
         # 主数据行（row 1）
-        self._total_label = QLabel(format_duration(total_seconds))
-        self._total_label.setStyleSheet(
-            "font-size: 16px; color: #e8e8e8;")
-        self._total_label.setAlignment(Qt.AlignCenter)
+        self._total_value = QLabel(format_duration(total_seconds))
+        self._total_value.setStyleSheet(
+            "font-size: 14px; color: #e8e8e8;")
+        self._total_value.setAlignment(Qt.AlignCenter)
 
         if top_category:
             center_text = f"{top_icon} {top_category}  占 {top_percent:.0f}%"
         else:
             center_text = "暂无数据"
-        self._top_label = QLabel(center_text)
-        self._top_label.setStyleSheet(
-            "font-size: 16px; color: #e8e8e8;")
-        self._top_label.setAlignment(Qt.AlignCenter)
+        self._top_value = QLabel(center_text)
+        self._top_value.setStyleSheet(
+            "font-size: 14px; color: #e8e8e8;")
+        self._top_value.setAlignment(Qt.AlignCenter)
 
-        if yesterday_total > 0 and total_seconds > 0:
-            diff_pct = (total_seconds - yesterday_total) / yesterday_total * 100
+        if compare_total > 0 and total_seconds > 0:
+            diff_pct = (total_seconds - compare_total) / compare_total * 100
             if diff_pct >= 0:
-                compare_text = f"比昨天多 {diff_pct:.0f}%"
+                compare_text = f"{compare_prefix}多 {diff_pct:.0f}%"
                 color = "#d97706"
             else:
-                compare_text = f"比昨天少 {abs(diff_pct):.0f}%"
+                compare_text = f"{compare_prefix}少 {abs(diff_pct):.0f}%"
                 color = "#ff6b6b"
-        elif yesterday_total == 0 and total_seconds > 0:
-            compare_text = "昨天无数据"
+        elif compare_total == 0 and total_seconds > 0:
+            compare_text = "上期无数据"
             color = "#666"
         elif total_seconds == 0:
-            compare_text = "今天暂无数据"
+            compare_text = "暂无数据"
             color = "#666"
         else:
             compare_text = "无对比数据"
             color = "#666"
-        self._compare_label = QLabel(compare_text)
-        self._compare_label.setStyleSheet(
-            f"font-size: 16px; color: {color};")
-        self._compare_label.setAlignment(Qt.AlignCenter)
+        self._compare_value = QLabel(compare_text)
+        self._compare_value.setStyleSheet(
+            f"font-size: 14px; color: {color};")
+        self._compare_value.setAlignment(Qt.AlignCenter)
 
         # 布局：row 0 = 副标题，row 1 = 主数据
         grid.addWidget(self._total_sub, 0, 0, Qt.AlignCenter)
         grid.addWidget(self._top_sub, 0, 1, Qt.AlignCenter)
         grid.addWidget(self._compare_sub, 0, 2, Qt.AlignCenter)
-        grid.addWidget(self._total_label, 1, 0, Qt.AlignCenter)
-        grid.addWidget(self._top_label, 1, 1, Qt.AlignCenter)
-        grid.addWidget(self._compare_label, 1, 2, Qt.AlignCenter)
+        grid.addWidget(self._total_value, 1, 0, Qt.AlignCenter)
+        grid.addWidget(self._top_value, 1, 1, Qt.AlignCenter)
+        grid.addWidget(self._compare_value, 1, 2, Qt.AlignCenter)
 
         grid.setRowStretch(0, 1)
         grid.setRowStretch(1, 1)
@@ -162,20 +166,19 @@ class SummaryCard(QWidget):
         painter.setPen(Qt.NoPen)
         painter.drawRoundedRect(self.rect(), 12, 12)
 
-        # 三列之间的分隔线（比例定位，离两侧文字等距）
+        # 三列之间的分隔线（与 grid 列边界对齐）
         painter.setPen(QPen(QColor("#333"), 1))
         w = self.width()
         h = self.height()
-        margin_top = 0
-        margin_bottom = 0
-        x1 = w // 3
+        margin_top = int(h * 0.15)
+        margin_bottom = int(h * 0.15)
+        # grid: left_margin=32, 3列等宽, spacing=0
+        left_m = 32
+        col_w = (w - 2 * left_m) / 3
+        x1 = int(left_m + col_w)
         painter.drawLine(x1, margin_top, x1, h - margin_bottom)
-        x2 = w * 2 // 3
+        x2 = int(left_m + 2 * col_w)
         painter.drawLine(x2, margin_top, x2, h - margin_bottom)
-
-        # 水平分隔线：副标题和主数据之间
-        separator_y = int(h * 0.4)
-        painter.drawLine(0, separator_y, w, separator_y)
 
 
 # ── 环形图 ──────────────────────────────────────────────────────
@@ -206,19 +209,17 @@ class DonutChart(QWidget):
         self._data = data
         self._config = categories_config
         self.setFixedSize(180, 180)
+        self.setAttribute(Qt.WA_TranslucentBackground)  # 背景透明，不显示白色方块
 
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
 
-        # 背景透明
-        painter.eraseRect(self.rect())
-
         total = sum(d for _, d in self._data)
         cx, cy = 90, 90  # 中心点
         outer_r = 75
         inner_r = 48
-        gap_angle = 2  # 扇区间隙（度）
+        gap_angle = 2  # 扇区间隙（度），小值更精致
 
         if total == 0 or not self._data:
             # 空数据：灰色空圆环
@@ -278,13 +279,13 @@ class DonutChart(QWidget):
         font.setPointSize(11)
         font.setBold(True)
         painter.setFont(font)
-        painter.drawText(QRectF(0, 60, 180, 30),
+        painter.drawText(QRectF(0, 72, 180, 28),
                          Qt.AlignCenter, f"{total // 3600}:{(total % 3600) // 60:02d}:{total % 60:02d}")
         painter.setPen(QColor("#999"))
         font.setPointSize(9)
         font.setBold(False)
         painter.setFont(font)
-        painter.drawText(QRectF(0, 85, 180, 20),
+        painter.drawText(QRectF(0, 96, 180, 18),
                          Qt.AlignCenter, "总时长")
 
 
@@ -309,13 +310,13 @@ class CategoryRow(QWidget):
 
         # 用 QLabel 做布局（不用 paintEvent 全部自绘，省事）
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(16, 0, 16, 0)
+        layout.setContentsMargins(8, 0, 8, 0)
         layout.setSpacing(12)
 
         # emoji + 分类名
         name_label = QLabel(f"{icon}  {name}")
         name_label.setStyleSheet("font-size: 13px; color: #e8e8e8;")
-        name_label.setFixedWidth(100)
+        name_label.setFixedWidth(60)
         name_label.setAlignment(Qt.AlignVCenter)
 
         # 进度条（用自绘 widget）
@@ -335,7 +336,7 @@ class CategoryRow(QWidget):
         else:
             pct_text = f"{percent:.0f}%"
         pct_label = QLabel(pct_text)
-        pct_label.setStyleSheet("font-size: 14px; font-weight: bold; color: #999;")
+        pct_label.setStyleSheet("font-size: 12px; color: #999;")
         pct_label.setFixedWidth(40)
         pct_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
 
@@ -397,12 +398,14 @@ class StatsDialog(FramelessDialog):
                  week_stats: List[Tuple[str, int]],
                  month_stats: List[Tuple[str, int]],
                  yesterday_stats: Optional[List[Tuple[str, int]]] = None,
+                 last_week_stats: Optional[List[Tuple[str, int]]] = None,
+                 last_month_stats: Optional[List[Tuple[str, int]]] = None,
                  categories_config: Optional[Dict] = None,
                  export_csv_fn: Optional[Callable] = None,
                  export_json_fn: Optional[Callable] = None,
                  parent=None):
         super().__init__(title="WindowStatus 使用统计", parent=parent)
-        self.setFixedSize(750, 600)
+        self.setFixedSize(750, 520)
         self.setStyleSheet(STYLESHEET)
 
         # 保存数据
@@ -411,12 +414,16 @@ class StatsDialog(FramelessDialog):
         self._week_stats = week_stats
         self._month_stats = month_stats
         self._yesterday_stats = yesterday_stats or []
+        self._last_week_stats = last_week_stats or []
+        self._last_month_stats = last_month_stats or []
         self._categories_config = categories_config or {}
         self._export_csv_fn = export_csv_fn
         self._export_json_fn = export_json_fn
 
-        # 计算昨日总时长
+        # 计算对比基准总时长
         self._yesterday_total = sum(d for _, d in self._yesterday_stats)
+        self._last_week_total = sum(d for _, d in self._last_week_stats)
+        self._last_month_total = sum(d for _, d in self._last_month_stats)
 
         # 使用 FramelessDialog 的 content_layout
         main_layout = self.content_layout
@@ -428,9 +435,11 @@ class StatsDialog(FramelessDialog):
         tabs.setTabBar(CustomTabBar())
         tabs.addTab(self._create_stats_tab(), "今日统计")
         tabs.addTab(self._create_stats_tab_generic(
-            self._week_stats), "本周统计")
+            self._week_stats, self._last_week_stats,
+            "本周总时长", "vs 上周", "比上周"), "本周统计")
         tabs.addTab(self._create_stats_tab_generic(
-            self._month_stats), "本月统计")
+            self._month_stats, self._last_month_stats,
+            "本月总时长", "vs 上月", "比上月"), "本月统计")
         tabs.addTab(self._create_timeline_tab(), "时间线")
 
         main_layout.addWidget(tabs)
@@ -481,17 +490,24 @@ class StatsDialog(FramelessDialog):
         top_icon = self._categories_config.get(
             top_category, {}).get("icon", "") or DEFAULT_ICON
 
-        # 摘要卡片
+        # 摘要卡片（16px 外边距，与 demo 一致）
         summary = SummaryCard(
             total_seconds, top_category, top_icon,
-            top_percent, self._yesterday_total
+            top_percent, self._yesterday_total,
+            total_label="今日总时长", compare_label="vs 昨天",
+            compare_prefix="比昨天"
         )
-        layout.addWidget(summary)
+        summary_container = QWidget()
+        summary_layout = QVBoxLayout(summary_container)
+        summary_layout.setContentsMargins(16, 16, 16, 0)
+        summary_layout.setSpacing(0)
+        summary_layout.addWidget(summary)
+        layout.addWidget(summary_container)
 
         # 中间区域：环形图 + 列表
         mid_layout = QHBoxLayout()
-        mid_layout.setContentsMargins(24, 24, 24, 8)
-        mid_layout.setSpacing(24)
+        mid_layout.setContentsMargins(16, 16, 16, 16)
+        mid_layout.setSpacing(16)
 
         # 左侧：环形图
         donut = DonutChart(self._stats_data, self._categories_config)
@@ -521,47 +537,52 @@ class StatsDialog(FramelessDialog):
         layout.addLayout(mid_layout, 1)
         return widget
 
-    # ── 通用统计 tab（周/月，带环形图 + 列表）──────────────
+    # ── 通用统计 tab（周/月，带摘要卡片 + 环形图 + 列表）──────────────
 
     def _create_stats_tab_generic(
-            self, data: List[Tuple[str, int]]) -> QWidget:
-        """创建周/月统计标签页"""
+            self, data: List[Tuple[str, int]],
+            compare_data: Optional[List[Tuple[str, int]]] = None,
+            total_label: str = "总时长",
+            compare_label: str = "vs 上期",
+            compare_prefix: str = "比上期") -> QWidget:
+        """创建周/月统计标签页（带三列摘要卡片）"""
         widget = QWidget()
         layout = QVBoxLayout(widget)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
         total = sum(d for _, d in data)
+        compare_total = sum(d for _, d in (compare_data or []))
 
-        # 摘要区域：总时长
-        summary = QWidget()
-        summary.setFixedHeight(90)
-        summary_layout = QHBoxLayout(summary)
-        summary_layout.setContentsMargins(32, 16, 32, 16)
-
-        if total > 0:
-            total_label = QLabel(format_duration(total))
-            total_label.setStyleSheet(
-                "font-size: 18px; font-weight: bold; color: #e8e8e8;")
-            summary_layout.addWidget(total_label)
-            sub_label = QLabel("总时长")
-            sub_label.setStyleSheet(
-                "font-size: 12px; color: #666; margin-left: 8px;")
-            summary_layout.addWidget(sub_label)
+        # 计算最常用分类
+        if data:
+            top_category = data[0][0]
+            top_duration = data[0][1]
+            top_percent = (top_duration / total * 100 if total > 0 else 0)
         else:
-            empty_label = QLabel("暂无数据")
-            empty_label.setStyleSheet(
-                "font-size: 14px; color: #666;")
-            summary_layout.addWidget(empty_label)
+            top_category = ""
+            top_duration = 0
+            top_percent = 0
+        top_icon = self._categories_config.get(
+            top_category, {}).get("icon", "") or DEFAULT_ICON
 
-        summary_layout.addStretch()
-        # summary 的背景在 paintEvent 里画
-        summary.paintEvent = lambda e: _paint_card_bg(summary, e)
-        layout.addWidget(summary)
+        # 摘要卡片（三列：总时长 + 最常用分类 + vs 上期）
+        summary = SummaryCard(
+            total, top_category, top_icon,
+            top_percent, compare_total,
+            total_label=total_label, compare_label=compare_label,
+            compare_prefix=compare_prefix
+        )
+        summary_container = QWidget()
+        summary_layout = QVBoxLayout(summary_container)
+        summary_layout.setContentsMargins(16, 16, 16, 0)
+        summary_layout.setSpacing(0)
+        summary_layout.addWidget(summary)
+        layout.addWidget(summary_container)
 
         # 中间区域：环形图 + 列表
         mid_layout = QHBoxLayout()
-        mid_layout.setContentsMargins(16, 12, 16, 0)
+        mid_layout.setContentsMargins(16, 16, 16, 16)
         mid_layout.setSpacing(16)
 
         donut = DonutChart(data, self._categories_config)
@@ -605,7 +626,7 @@ class StatsDialog(FramelessDialog):
         summary = QWidget()
         summary.setFixedHeight(90)
         summary_layout = QHBoxLayout(summary)
-        summary_layout.setContentsMargins(32, 16, 32, 16)
+        summary_layout.setContentsMargins(16, 16, 16, 16)
 
         if record_count > 0:
             count_label = QLabel(f"{record_count} 条记录")
@@ -627,7 +648,7 @@ class StatsDialog(FramelessDialog):
         summary.paintEvent = lambda e: _paint_card_bg(summary, e)
         layout.addWidget(summary)
 
-        # 表格
+        # 表格（16px 外边距，与 demo 一致）
         table = QTableWidget()
         table.setColumnCount(4)
         table.setHorizontalHeaderLabels(["时间", "窗口", "分类", "时长"])
@@ -661,7 +682,12 @@ class StatsDialog(FramelessDialog):
             dur_item = QTableWidgetItem(format_duration(duration))
             table.setItem(row_idx, 3, dur_item)
 
-        layout.addWidget(table)
+        table_container = QWidget()
+        table_layout = QVBoxLayout(table_container)
+        table_layout.setContentsMargins(16, 0, 16, 16)
+        table_layout.setSpacing(0)
+        table_layout.addWidget(table)
+        layout.addWidget(table_container)
         return widget
 
     # ── 导出回调 ────────────────────────────────────────────

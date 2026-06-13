@@ -817,6 +817,94 @@ class StatsPlugin(Plugin):
             self.logger.error(f"Stats 插件: 获取昨日统计失败: {e}")
             return []
 
+    def get_last_week_stats(self) -> List[Tuple[str, int]]:
+        """
+        获取上周统计
+
+        Returns:
+            List[Tuple[str, int]]: [(分类, 总时长), ...]
+        """
+        if not self.conn:
+            return []
+
+        try:
+            today = datetime.now().date()
+            this_week_start = self._get_week_start(today)
+            last_week_start = this_week_start - timedelta(days=7)
+            last_week_end = this_week_start - timedelta(days=1)
+
+            cursor = self.conn.cursor()
+
+            # 先查 weekly_stats
+            cursor.execute('''
+                SELECT category, SUM(total_duration) as total_duration
+                FROM weekly_stats
+                WHERE week_start = ?
+                GROUP BY category
+                ORDER BY total_duration DESC
+            ''', (last_week_start,))
+            result = cursor.fetchall()
+            if result:
+                return result
+
+            # 如果没有，从 daily_stats 聚合
+            cursor.execute('''
+                SELECT category, SUM(total_duration) as total_duration
+                FROM daily_stats
+                WHERE date >= ? AND date <= ?
+                GROUP BY category
+                ORDER BY total_duration DESC
+            ''', (last_week_start, last_week_end))
+            return cursor.fetchall()
+
+        except Exception as e:
+            self.logger.error(f"Stats 插件: 获取上周统计失败: {e}")
+            return []
+
+    def get_last_month_stats(self) -> List[Tuple[str, int]]:
+        """
+        获取上月统计
+
+        Returns:
+            List[Tuple[str, int]]: [(分类, 总时长), ...]
+        """
+        if not self.conn:
+            return []
+
+        try:
+            today = datetime.now().date()
+            # 上月1号和最后一天
+            first_of_this_month = today.replace(day=1)
+            last_month_end = first_of_this_month - timedelta(days=1)
+            last_month_start = last_month_end.replace(day=1)
+
+            cursor = self.conn.cursor()
+
+            # 先查 monthly_stats
+            cursor.execute('''
+                SELECT category, total_duration
+                FROM monthly_stats
+                WHERE year = ? AND month = ?
+                ORDER BY total_duration DESC
+            ''', (last_month_start.year, last_month_start.month))
+            result = cursor.fetchall()
+            if result:
+                return result
+
+            # 如果没有，从 daily_stats 聚合
+            cursor.execute('''
+                SELECT category, SUM(total_duration) as total_duration
+                FROM daily_stats
+                WHERE date >= ? AND date <= ?
+                GROUP BY category
+                ORDER BY total_duration DESC
+            ''', (last_month_start, last_month_end))
+            return cursor.fetchall()
+
+        except Exception as e:
+            self.logger.error(f"Stats 插件: 获取上月统计失败: {e}")
+            return []
+
     def get_today_timeline(self, limit: int = 50) -> List[Tuple]:
         """
         获取今日时间线
@@ -1011,6 +1099,8 @@ class StatsPlugin(Plugin):
         week_stats = self.get_week_stats()
         month_stats = self.get_month_stats()
         yesterday_stats = self.get_yesterday_stats()
+        last_week_stats = self.get_last_week_stats()
+        last_month_stats = self.get_last_month_stats()
 
         # 从配置获取分类信息（颜色、图标）
         categories_config = self._kernel.config.get_categories()
@@ -1021,6 +1111,8 @@ class StatsPlugin(Plugin):
             week_stats=week_stats,
             month_stats=month_stats,
             yesterday_stats=yesterday_stats,
+            last_week_stats=last_week_stats,
+            last_month_stats=last_month_stats,
             categories_config=categories_config,
             export_csv_fn=self.export_to_csv,
             export_json_fn=self.export_to_json,

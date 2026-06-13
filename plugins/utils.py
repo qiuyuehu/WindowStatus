@@ -120,14 +120,34 @@ class CustomTabBar(QTabBar):
         self._hover_index = -1
         self.setMouseTracking(True)
         self.setDrawBase(False)
+        self.setExpanding(False)  # 不自动拉伸填满，保持每个 tab 独立宽度
+        self.setDocumentMode(True)  # 简化渲染，避免默认样式干扰
 
     def sizeHint(self):
         hint = super().sizeHint()
         hint.setHeight(40)
+        # 每个 tab 加宽，保证 18px 水平内边距（与 demo padding: 10px 18px 一致）
+        total_width = 0
+        font = self.font()
+        font.setPointSize(10)
+        fm = self.fontMetrics()
+        for i in range(self.count()):
+            text_width = fm.horizontalAdvance(self.tabText(i))
+            total_width += text_width + 36  # 18px × 2 侧边距
+        hint.setWidth(max(total_width, hint.width()))
         return hint
 
     def minimumSizeHint(self):
         hint = super().minimumSizeHint()
+        hint.setHeight(40)
+        return hint
+
+    def tabSizeHint(self, index):
+        """每个 tab 独立宽度：文字 + 两侧 18px 内边距"""
+        hint = super().tabSizeHint(index)
+        fm = self.fontMetrics()
+        text_width = fm.horizontalAdvance(self.tabText(index))
+        hint.setWidth(text_width + 36)  # 18px × 2
         hint.setHeight(40)
         return hint
 
@@ -150,10 +170,6 @@ class CustomTabBar(QTabBar):
 
         # ── 标签栏背景 ──
         painter.fillRect(0, 0, w, h, self.BAR_BG)
-
-        # ── 标签栏底部分隔线 ──
-        painter.setPen(QPen(self.BAR_BORDER, 1))
-        painter.drawLine(0, h - 1, w, h - 1)
 
         # ── 绘制每个 tab ──
         for i in range(self.count()):
@@ -182,9 +198,13 @@ class CustomTabBar(QTabBar):
                 pen.setCapStyle(Qt.FlatCap)
                 painter.setPen(pen)
                 y = h - 2  # 紧贴底部分隔线上方
-                x1 = int(rect.left()) + 12
-                x2 = int(rect.right()) - 12
+                x1 = int(rect.left()) + 4
+                x2 = int(rect.right()) - 4
                 painter.drawLine(x1, y, x2, y)
+
+        # ── 标签栏底部分隔线（最后画，确保不被遮挡）──
+        painter.setPen(QPen(self.BAR_BORDER, 1))
+        painter.drawLine(0, h - 1, w, h - 1)
 
 
 # ── 无边框圆角弹窗基类 ─────────────────────────────────────────
