@@ -76,7 +76,8 @@ class SettingsPlugin(Plugin):
             plugins_info = self._get_plugins_info()
             current_theme = self.config.get("theme", "dark")
             
-            dialog = SettingsDialog(categories, plugins_info, current_theme)
+            dialog = SettingsDialog(categories, plugins_info, current_theme,
+                                   config=self.config, event_bus=self.event_bus)
             dialog.set_on_save(self._on_save)
             dialog.exec_()
         except Exception as e:

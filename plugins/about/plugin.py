@@ -4,44 +4,41 @@ About 插件 - 插件层
 提供"关于"窗口，展示应用信息和作者署名
 """
 
-from PyQt5.QtWidgets import QDialog, QVBoxLayout, QLabel, QPushButton
+from PyQt5.QtWidgets import QVBoxLayout, QLabel, QPushButton
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
 
 from plugins.base import Plugin
+from plugins.utils import FramelessDialog
 from kernel.event_bus import Events
 
 
-class AboutDialog(QDialog):
+class AboutDialog(FramelessDialog):
     """关于窗口"""
 
     STYLESHEET = """
-        QDialog {
-            background-color: #1a1a2e;
-            color: white;
-        }
         QLabel {
-            color: white;
+            color: #e8e8e8;
         }
         QPushButton {
-            background-color: #0f3460;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 4px;
+            background-color: #1a1a1a;
+            color: #e8e8e8;
+            border: 1px solid #333;
+            padding: 8px 20px;
+            border-radius: 6px;
+            font-size: 13px;
         }
         QPushButton:hover {
-            background-color: #1a4a8a;
+            background-color: #252525;
         }
     """
 
     def __init__(self, version: str = "v3.3.0", parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("关于 WindowStatus")
+        super().__init__(title="关于 WindowStatus", parent=parent)
         self.setFixedSize(420, 340)
         self.setStyleSheet(self.STYLESHEET)
 
-        layout = QVBoxLayout()
+        layout = self.content_layout
         layout.setSpacing(12)
         layout.setContentsMargins(30, 20, 30, 20)
 
@@ -55,7 +52,7 @@ class AboutDialog(QDialog):
         version_label = QLabel(version)
         version_label.setFont(QFont("Microsoft YaHei UI", 12))
         version_label.setAlignment(Qt.AlignCenter)
-        version_label.setStyleSheet("color: #4ECDC4;")
+        version_label.setStyleSheet("color: #d97706;")
         layout.addWidget(version_label)
 
         # 描述
@@ -65,7 +62,7 @@ class AboutDialog(QDialog):
         )
         desc.setFont(QFont("Microsoft YaHei UI", 10))
         desc.setAlignment(Qt.AlignCenter)
-        desc.setStyleSheet("color: #b8b8b8;")
+        desc.setStyleSheet("color: #999;")
         layout.addWidget(desc)
 
         # 署名
@@ -79,13 +76,13 @@ class AboutDialog(QDialog):
         author2 = QLabel("开发与设计：衾衾 (Hermes Agent)")
         author2.setFont(QFont("Microsoft YaHei UI", 10))
         author2.setAlignment(Qt.AlignCenter)
-        author2.setStyleSheet("color: #4ECDC4;")
+        author2.setStyleSheet("color: #d97706;")
         layout.addWidget(author2)
 
         # GitHub 链接
         github_link = QLabel(
             '<a href="https://github.com/qiuyuehu/WindowStatus"'
-            ' style="color: #4ECDC4;">GitHub 仓库</a>'
+            ' style="color: #d97706;">GitHub 仓库</a>'
         )
         github_link.setFont(QFont("Microsoft YaHei UI", 10))
         github_link.setAlignment(Qt.AlignCenter)

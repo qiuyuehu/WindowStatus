@@ -78,11 +78,11 @@ class OverlayWidget(QWidget):
         self.duration_timer.timeout.connect(self._update_duration)
         self.duration_timer.start(1000)
 
-        # TOPMOST 维护定时器（每 3 秒用 Win32 SetWindowPos 强制刷新置顶状态）
-        # 解决 Windows 系统抢占 TOPMOST、setWindowFlags 重建 HWND 后丢失置顶等问题
+        # TOPMOST 维护定时器（每 1 秒用 Win32 SetWindowPos 强制刷新置顶状态）
+        # 解决 Windows 系统抢占 TOPMOST、浏览器/cmd 抢焦点后丢失置顶等问题
         self._topmost_timer = QTimer()
         self._topmost_timer.timeout.connect(self._maintain_topmost)
-        self._topmost_timer.start(3000)
+        self._topmost_timer.start(1000)
 
         # 应用透明度
         self.setWindowOpacity(config.get("opacity", 0.9))
@@ -200,7 +200,7 @@ class OverlayWidget(QWidget):
 
         # 启停 TOPMOST 维护定时器
         if enabled:
-            self._topmost_timer.start(3000)
+            self._topmost_timer.start(1000)  # ★ 改成1秒，和桌宠一致
             self._maintain_topmost()  # 立即刷新一次
         else:
             self._topmost_timer.stop()
@@ -214,8 +214,9 @@ class OverlayWidget(QWidget):
         try:
             import ctypes
             hwnd = int(self.winId())
-            # HWND_TOPMOST = -1, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE = 0x0003
-            ctypes.windll.user32.SetWindowPos(hwnd, -1, 0, 0, 0, 0, 0x0003)
+            # HWND_TOPMOST = -1
+            # SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER = 0x0203
+            ctypes.windll.user32.SetWindowPos(hwnd, -1, 0, 0, 0, 0, 0x0203)
         except OSError:
             pass
 

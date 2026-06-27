@@ -6,7 +6,7 @@
 from datetime import datetime
 from typing import Optional
 
-from PyQt5.QtCore import Qt, QRectF, QPoint
+from PyQt5.QtCore import Qt, QRectF, QPoint, pyqtSignal
 from PyQt5.QtGui import QPainter, QColor, QPen, QFont, QPainterPath
 from PyQt5.QtWidgets import QTabBar, QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QWidget
 
@@ -370,3 +370,62 @@ class FramelessDialog(QDialog):
 
     def mouseReleaseEvent(self, event):
         self._drag_pos = None
+
+
+# ── Toggle 开关组件 ─────────────────────────────────────────────
+
+class ToggleSwitch(QWidget):
+    """
+    自绘 toggle 开关 — 与 demo HTML 一致
+
+    样式：
+    - 轨道：40×22，圆角 11px，#333（关）/ #d97706（开）
+    - 滑块：18×18 白色圆形，left 2px（关）/ 20px（开）
+    """
+
+    TRACK_OFF = QColor("#333")
+    TRACK_ON = QColor("#d97706")
+    KNOB_COLOR = QColor("#ffffff")
+    toggled = pyqtSignal(bool)  # 状态变更信号
+
+    def __init__(self, checked: bool = False, parent=None):
+        super().__init__(parent)
+        self._checked = checked
+        self.setFixedSize(40, 22)
+        self.setCursor(Qt.PointingHandCursor)
+
+    def isChecked(self) -> bool:
+        return self._checked
+
+    def setChecked(self, checked: bool):
+        self._checked = checked
+        self.update()
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self._checked = not self._checked
+            self.update()
+            self.toggled.emit(self._checked)
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+
+        w = self.width()
+        h = self.height()
+
+        # 轨道
+        track_color = self.TRACK_ON if self._checked else self.TRACK_OFF
+        painter.setBrush(track_color)
+        painter.setPen(Qt.NoPen)
+        painter.drawRoundedRect(0, 0, w, h, 11, 11)
+
+        # 滑块（白色圆形）
+        painter.setBrush(self.KNOB_COLOR)
+        knob_r = 8
+        if self._checked:
+            knob_x = w - knob_r - 2  # 右侧
+        else:
+            knob_x = knob_r + 2      # 左侧
+        knob_y = h // 2
+        painter.drawEllipse(QPoint(knob_x, knob_y), knob_r, knob_r)

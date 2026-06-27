@@ -72,11 +72,11 @@ class DesktopPetWidget(QWidget):
         self.setWindowTitle("WindowStatus - 桌宠")
         self.setFixedSize(256, 256)
 
-        # TOPMOST 维护定时器（每 3 秒用 Win32 SetWindowPos 强制刷新置顶状态）
+        # TOPMOST 维护定时器（每 1 秒用 Win32 SetWindowPos 强制刷新置顶状态）
         self._always_on_top = True  # 跟踪置顶状态
         self._topmost_timer = QTimer()
         self._topmost_timer.timeout.connect(self._maintain_topmost)
-        self._topmost_timer.start(3000)
+        self._topmost_timer.start(1000)
         
         # 加载所有状态的图片
         self._images = {}
@@ -139,8 +139,9 @@ class DesktopPetWidget(QWidget):
         try:
             import ctypes
             hwnd = int(self.winId())
-            # HWND_TOPMOST = -1, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE = 0x0001 | 0x0002 | 0x0010 = 0x0003
-            ctypes.windll.user32.SetWindowPos(hwnd, -1, 0, 0, 0, 0, 0x0003)
+            # HWND_TOPMOST = -1
+            # SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER = 0x0203
+            ctypes.windll.user32.SetWindowPos(hwnd, -1, 0, 0, 0, 0, 0x0203)
         except OSError:
             pass
 

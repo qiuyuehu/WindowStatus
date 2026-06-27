@@ -7,7 +7,7 @@ Tray 插件 - 插件层
 import os
 from typing import Optional
 
-from PyQt5.QtWidgets import QSystemTrayIcon, QMenu, QAction, QMessageBox
+from PyQt5.QtWidgets import QSystemTrayIcon, QMenu, QAction
 from PyQt5.QtGui import QIcon, QPixmap, QPainter, QColor, QFont
 from PyQt5.QtCore import Qt
 
@@ -36,7 +36,6 @@ class TrayPlugin(Plugin):
         
         # 状态
         self.is_top_action: Optional[QAction] = None
-        self.autostart_action: Optional[QAction] = None
     
     def on_load(self):
         """插件加载"""
@@ -162,26 +161,9 @@ class TrayPlugin(Plugin):
         
         self.menu.addSeparator()
         
-        # 关闭时最小化到托盘
-        self.minimize_to_tray_action = self.menu.addAction("关闭时最小化到托盘")
-        self.minimize_to_tray_action.setCheckable(True)
-        self.minimize_to_tray_action.setChecked(self.config.is_minimize_to_tray())
-        self.minimize_to_tray_action.triggered.connect(
-            lambda checked: self._toggle_minimize_to_tray(checked)
-        )
-        
-        self.menu.addSeparator()
-        
         # 统计和设置
         stats_action = self.menu.addAction("使用统计")
         stats_action.triggered.connect(lambda: self.event_bus.emit(Events.SHOW_STATS))
-        
-        # 导出统计
-        export_menu = self.menu.addMenu("导出统计")
-        export_csv_action = export_menu.addAction("导出为 CSV")
-        export_csv_action.triggered.connect(self._export_csv)
-        export_json_action = export_menu.addAction("导出为 JSON")
-        export_json_action.triggered.connect(self._export_json)
         
         settings_action = self.menu.addAction("设置")
         settings_action.triggered.connect(lambda: self.event_bus.emit(Events.SHOW_SETTINGS))
@@ -189,20 +171,6 @@ class TrayPlugin(Plugin):
         # 重启
         restart_action = self.menu.addAction("重启")
         restart_action.triggered.connect(lambda: self.event_bus.emit(Events.RESTART))
-        
-        # 关于
-        about_action = self.menu.addAction("关于")
-        about_action.triggered.connect(lambda: self.event_bus.emit(Events.SHOW_ABOUT))
-        
-        self.menu.addSeparator()
-        
-        # 开机自启动
-        self.autostart_action = self.menu.addAction("开机自启动")
-        self.autostart_action.setCheckable(True)
-        self.autostart_action.setChecked(self._is_autostart_enabled())
-        self.autostart_action.triggered.connect(
-            lambda checked: self._toggle_autostart(checked)
-        )
         
         self.menu.addSeparator()
         
@@ -236,69 +204,6 @@ class TrayPlugin(Plugin):
         
         self.logger.info(f"Tray 插件: 透明度: {opacity}")
     
-    def _toggle_minimize_to_tray(self, checked: bool):
-        """切换关闭时最小化到托盘"""
-        self.config.set_minimize_to_tray(checked)
-        self.logger.info(f"Tray 插件: 关闭时最小化到托盘: {checked}")
-    
-    def _toggle_autostart(self, checked: bool):
-        """切换开机自启动"""
-        try:
-            import sys
-            import os
-            import winreg
-
-            key = winreg.OpenKey(
-                winreg.HKEY_CURRENT_USER,
-                r"Software\Microsoft\Windows\CurrentVersion\Run",
-                0, winreg.KEY_SET_VALUE
-            )
-            try:
-                if checked:
-                    if getattr(sys, 'frozen', False):
-                        app_path = sys.executable
-                    else:
-                        app_path = f'"{sys.executable}" "{os.path.abspath(__file__)}"'
-
-                    winreg.SetValueEx(key, "WindowStatus", 0, winreg.REG_SZ, app_path)
-                    self.logger.info("Tray 插件: 已启用开机自启动")
-                else:
-                    try:
-                        winreg.DeleteValue(key, "WindowStatus")
-                    except FileNotFoundError:
-                        pass
-                    self.logger.info("Tray 插件: 已禁用开机自启动")
-            finally:
-                winreg.CloseKey(key)
-
-            # 更新菜单状态
-            if self.autostart_action:
-                self.autostart_action.setChecked(checked)
-
-        except Exception as e:
-            self.logger.error(f"Tray 插件: 设置开机自启动失败: {e}")
-            QMessageBox.warning(None, "错误", f"设置开机自启动失败: {e}")
-    
-    def _is_autostart_enabled(self) -> bool:
-        """检查是否已启用开机自启动"""
-        try:
-            import winreg
-            key = winreg.OpenKey(
-                winreg.HKEY_CURRENT_USER,
-                r"Software\Microsoft\Windows\CurrentVersion\Run",
-                0, winreg.KEY_READ
-            )
-            try:
-                try:
-                    winreg.QueryValueEx(key, "WindowStatus")
-                    return True
-                except FileNotFoundError:
-                    return False
-            finally:
-                winreg.CloseKey(key)
-        except Exception:
-            return False
-    
     def _on_category_matched(self, **kwargs):
         """处理分类匹配事件，更新托盘提示"""
         if self.tray:
@@ -319,37 +224,6 @@ class TrayPlugin(Plugin):
         """更新置顶状态"""
         if self.is_top_action:
             self.is_top_action.setText("取消置顶" if is_top else "置顶")
-    
-    def update_autostart_state(self, enabled: bool):
-        """更新自启动状态"""
-        if self.autostart_action:
-            self.autostart_action.setChecked(enabled)
-    
-    def _export_csv(self):
-        """导出统计为 CSV"""
-        try:
-            stats_plugin = self.get_plugin("stats")
-            if not stats_plugin:
-                QMessageBox.warning(None, "导出失败", "统计插件未加载")
-                return
-            
-            output_path = stats_plugin.export_to_csv()
-            QMessageBox.information(None, "导出成功", f"已导出到:\n{output_path}")
-        except Exception as e:
-            QMessageBox.critical(None, "导出失败", f"导出失败: {e}")
-    
-    def _export_json(self):
-        """导出统计为 JSON"""
-        try:
-            stats_plugin = self.get_plugin("stats")
-            if not stats_plugin:
-                QMessageBox.warning(None, "导出失败", "统计插件未加载")
-                return
-            
-            output_path = stats_plugin.export_to_json()
-            QMessageBox.information(None, "导出成功", f"已导出到:\n{output_path}")
-        except Exception as e:
-            QMessageBox.critical(None, "导出失败", f"导出失败: {e}")
 
 
 # 约定：PluginClass 变量指向插件类

@@ -640,7 +640,7 @@ class StatsPlugin(Plugin):
         """
         获取本周统计
 
-        先尝试从 weekly_stats 查询，如果没有则从 activity_log + daily_stats 聚合
+        本周数据始终实时聚合（确保包含今天的数据）
 
         Returns:
             List[Tuple[str, int]]: [(分类, 总时长), ...]
@@ -651,25 +651,11 @@ class StatsPlugin(Plugin):
         try:
             today = datetime.now().date()
             week_start = self._get_week_start(today)
-            week_end = week_start + timedelta(days=6)
 
             cursor = self.conn.cursor()
 
-            # 先查 weekly_stats（已完成的周）
-            cursor.execute('''
-                SELECT category, SUM(total_duration) as total_duration
-                FROM weekly_stats
-                WHERE week_start = ?
-                GROUP BY category
-                ORDER BY total_duration DESC
-            ''', (week_start,))
-
-            result = cursor.fetchall()
-            if result:
-                return result
-
-            # 如果 weekly_stats 没有数据，从 activity_log + daily_stats 实时聚合
-            # 本周已过去的天数从 daily_stats 取
+            # ★ 本周数据始终实时聚合（确保包含今天的数据）
+            # 从 daily_stats 取本周已过去的天数
             cursor.execute('''
                 SELECT category, SUM(total_duration) as total_duration
                 FROM daily_stats

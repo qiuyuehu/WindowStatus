@@ -14,7 +14,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
-from plugins.utils import CustomTabBar, FramelessDialog
+from plugins.utils import CustomTabBar, FramelessDialog, ToggleSwitch
 
 
 # ============================================================
@@ -424,11 +424,10 @@ class PluginsTab(QWidget):
 
         self.table.setRowCount(len(self._plugins))
         for row, plugin in enumerate(self._plugins):
-            # 复选框
-            checkbox = QCheckBox()
-            checkbox.setChecked(plugin["enabled"])
-            checkbox.stateChanged.connect(lambda state, r=row: self._on_toggle(r, state))
-            self.table.setCellWidget(row, 0, checkbox)
+            # toggle 开关
+            toggle = ToggleSwitch(checked=plugin["enabled"])
+            toggle.toggled.connect(lambda checked, r=row: self._on_toggle(r, checked))
+            self.table.setCellWidget(row, 0, toggle)
 
             # 插件名
             name_item = QTableWidgetItem(plugin["name"])
@@ -442,8 +441,8 @@ class PluginsTab(QWidget):
         layout.addWidget(self.table)
         self.setLayout(layout)
 
-    def _on_toggle(self, row: int, state: int):
-        self._plugins[row]["enabled"] = (state == Qt.Checked)
+    def _on_toggle(self, row: int, checked: bool):
+        self._plugins[row]["enabled"] = checked
 
     def get_plugins_config(self) -> Dict[str, bool]:
         """获取插件启用/禁用配置"""
@@ -455,60 +454,257 @@ class PluginsTab(QWidget):
 # ============================================================
 
 class GeneralTab(QWidget):
-    """通用设置标签页（主题等）"""
+    """通用设置标签页 — 按 demo 设计：侧边栏 + 功能分组"""
 
-    THEMES = [
-        ("dark", "暗色模式"),
-        ("light", "亮色模式"),
+    SIDEBAR_ITEMS = [
+        ("⚙️ 通用设置", "general"),
+        ("🎨 外观", "appearance"),
+        ("🔔 通知", "notifications"),
     ]
 
-    def __init__(self, current_theme: str = "dark", parent=None):
+    def __init__(self, current_theme: str = "dark", config=None, event_bus=None, parent=None):
         super().__init__(parent)
         self._current_theme = current_theme
+        self._config = config
+        self._event_bus = event_bus
         self._init_ui()
 
     def _init_ui(self):
-        layout = QVBoxLayout()
-        layout.setContentsMargins(15, 15, 15, 15)
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        # ── 侧边栏 ──
+        self._sidebar = QListWidget()
+        self._sidebar.setFixedWidth(160)
+        self._sidebar.setStyleSheet("""
+            QListWidget {
+                background-color: #1a1a1a;
+                color: #999;
+                border: none;
+                border-right: 1px solid #2a2a2a;
+                outline: none;
+                font-size: 13px;
+            }
+            QListWidget::item {
+                padding: 10px 16px;
+            }
+            QListWidget::item:selected {
+                background-color: rgba(160,160,160,0.1);
+                color: #a0a0a0;
+                border-left: 2px solid #a0a0a0;
+            }
+            QListWidget::item:hover {
+                background-color: rgba(255,255,255,0.05);
+                color: #e8e8e8;
+            }
+        """)
+        for label, _key in self.SIDEBAR_ITEMS:
+            self._sidebar.addItem(label)
+        self._sidebar.currentRowChanged.connect(self._on_sidebar_changed)
+        layout.addWidget(self._sidebar)
+
+        # ── 内容区（Stacked）──
+        from PyQt5.QtWidgets import QStackedWidget
+        self._stack = QStackedWidget()
+
+        self._stack.addWidget(self._create_general_page())
+        self._stack.addWidget(self._create_appearance_page())
+        self._stack.addWidget(self._create_notifications_page())
+
+        layout.addWidget(self._stack, 1)
+
+        # 默认选中第一项
+        self._sidebar.setCurrentRow(0)
+
+    def _on_sidebar_changed(self, index):
+        """侧边栏切换页面"""
+        if 0 <= index < self._stack.count():
+            self._stack.setCurrentIndex(index)
+
+    # ── 通用设置页面 ─────────────────────────────────────────
+
+    def _create_general_page(self) -> QWidget:
+        """通用设置：基本设置 + 悬浮窗 + 数据管理"""
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(20, 16, 20, 16)
+        layout.setSpacing(12)
+
+        # ── 基本设置组 ──
+        layout.addWidget(self._group_title("基本设置"))
+
+        self._autostart_toggle = self._create_toggle(
+            self._is_autostart_enabled() if self._config else False)
+        layout.addWidget(self._setting_row(
+            "开机自启动", "Windows 启动时自动运行", self._autostart_toggle))
+
+        self._minimize_toggle = self._create_toggle(
+            self._config.get("minimize_to_tray", True) if self._config else True)
+        layout.addWidget(self._setting_row(
+            "关闭时最小化到托盘", "点击关闭按钮时隐藏到系统托盘", self._minimize_toggle))
+
+        self._topmost_toggle = self._create_toggle(
+            self._config.is_always_on_top() if self._config else True)
+        layout.addWidget(self._setting_row(
+            "窗口置顶", "悬浮窗和桌宠始终显示在最前面", self._topmost_toggle))
+
+        # ── 悬浮窗组 ──
+        layout.addWidget(self._group_title("悬浮窗"))
+
+        opacity_val = int(self._config.get("opacity", 0.9) * 100) if self._config else 90
+        self._opacity_label = QLabel(f"{opacity_val}%")
+        self._opacity_label.setStyleSheet("color: #d97706; font-size: 13px;")
+        layout.addWidget(self._setting_row(
+            "透明度", "调整悬浮窗的不透明度", self._opacity_label))
+
+        self._idle_toggle = self._create_toggle(
+            self._config.get("idle_detection", True) if self._config else True)
+        layout.addWidget(self._setting_row(
+            "空闲检测", "无操作超过 5 分钟暂停统计", self._idle_toggle))
+
+        # ── 数据管理组 ──
+        layout.addWidget(self._group_title("数据管理"))
+
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(8)
+        csv_btn = QPushButton("导出 CSV")
+        csv_btn.clicked.connect(self._on_export_csv)
+        json_btn = QPushButton("导出 JSON")
+        json_btn.clicked.connect(self._on_export_json)
+        about_btn = QPushButton("关于")
+        about_btn.clicked.connect(self._on_about)
+        btn_row.addWidget(csv_btn)
+        btn_row.addWidget(json_btn)
+        btn_row.addWidget(about_btn)
+        btn_row.addStretch()
+        layout.addLayout(btn_row)
+
+        layout.addStretch()
+        return page
+
+    # ── 外观页面 ─────────────────────────────────────────────
+
+    def _create_appearance_page(self) -> QWidget:
+        """外观设置：主题选择"""
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(20, 16, 20, 16)
         layout.setSpacing(16)
 
-        # 主题模式
-        theme_group_label = QLabel("主题模式")
-        theme_group_label.setStyleSheet("color: white; font-weight: bold; font-size: 13px;")
-        layout.addWidget(theme_group_label)
+        layout.addWidget(self._group_title("主题模式"))
 
-        theme_hint = QLabel("选择气泡的显示主题。")
-        theme_hint.setWordWrap(True)
-        theme_hint.setStyleSheet("color: #808080; font-size: 12px;")
-        layout.addWidget(theme_hint)
+        hint = QLabel("选择气泡的显示主题。")
+        hint.setStyleSheet("color: #666; font-size: 12px;")
+        layout.addWidget(hint)
 
+        from PyQt5.QtWidgets import QComboBox
         self.theme_combo = QComboBox()
-        for value, label in self.THEMES:
-            self.theme_combo.addItem(label, value)
-            if value == self._current_theme:
-                self.theme_combo.setCurrentIndex(self.theme_combo.count() - 1)
+        self.theme_combo.addItem("暗色模式", "dark")
+        self.theme_combo.addItem("亮色模式", "light")
+        if self._current_theme == "light":
+            self.theme_combo.setCurrentIndex(1)
         self.theme_combo.setStyleSheet("""
             QComboBox {
-                background-color: #1a1a1a;
-                color: white;
-                border: 1px solid #2a2a2a;
-                padding: 6px 10px;
-                border-radius: 4px;
-                min-width: 200px;
+                background-color: #1a1a1a; color: white;
+                border: 1px solid #2a2a2a; padding: 6px 10px;
+                border-radius: 4px; min-width: 200px;
             }
-            QComboBox::drop-down {
-                border: none;
-            }
+            QComboBox::drop-down { border: none; }
             QComboBox QAbstractItemView {
-                background-color: #1a1a1a;
-                color: white;
+                background-color: #1a1a1a; color: white;
                 selection-background-color: #252525;
             }
         """)
         layout.addWidget(self.theme_combo)
 
         layout.addStretch()
-        self.setLayout(layout)
+        return page
+
+    # ── 通知页面 ─────────────────────────────────────────────
+
+    def _create_notifications_page(self) -> QWidget:
+        """通知设置（预留）"""
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(20, 16, 20, 16)
+
+        placeholder = QLabel("通知功能开发中...")
+        placeholder.setStyleSheet("color: #666; font-size: 13px;")
+        placeholder.setAlignment(Qt.AlignCenter)
+        layout.addWidget(placeholder)
+
+        return page
+
+    # ── UI 组件工厂 ──────────────────────────────────────────
+
+    def _group_title(self, text: str) -> QLabel:
+        """创建分组标题"""
+        label = QLabel(text)
+        label.setStyleSheet(
+            "font-size: 14px; font-weight: bold; color: #e8e8e8;"
+            "padding: 12px 0 8px 0; border-bottom: 1px solid #2a2a2a;")
+        return label
+
+    def _create_toggle(self, checked: bool = False):
+        """创建 toggle 开关（自绘圆形滑块）"""
+        return ToggleSwitch(checked=checked)
+
+    def _setting_row(self, label_text: str, desc_text: str, widget) -> QWidget:
+        """创建一行设置项：左侧标签+描述，右侧控件"""
+        row = QWidget()
+        row.setMinimumHeight(56)
+        layout = QHBoxLayout(row)
+        layout.setContentsMargins(0, 8, 0, 8)
+
+        left = QVBoxLayout()
+        left.setSpacing(4)
+        label = QLabel(label_text)
+        label.setStyleSheet("font-size: 13px; color: #e8e8e8;")
+        desc = QLabel(desc_text)
+        desc.setStyleSheet("font-size: 11px; color: #666;")
+        left.addWidget(label)
+        left.addWidget(desc)
+
+        layout.addLayout(left, 1)
+        layout.addWidget(widget, 0, Qt.AlignRight | Qt.AlignVCenter)
+        return row
+
+    # ── 功能回调 ─────────────────────────────────────────────
+
+    def _is_autostart_enabled(self) -> bool:
+        """检查是否已启用开机自启动"""
+        try:
+            import winreg
+            key = winreg.OpenKey(
+                winreg.HKEY_CURRENT_USER,
+                r"Software\Microsoft\Windows\CurrentVersion\Run",
+                0, winreg.KEY_READ)
+            try:
+                winreg.QueryValueEx(key, "WindowStatus")
+                return True
+            except FileNotFoundError:
+                return False
+            finally:
+                winreg.CloseKey(key)
+        except Exception:
+            return False
+
+    def _on_export_csv(self):
+        """导出 CSV"""
+        if self._event_bus:
+            self._event_bus.emit("export.csv")
+
+    def _on_export_json(self):
+        """导出 JSON"""
+        if self._event_bus:
+            self._event_bus.emit("export.json")
+
+    def _on_about(self):
+        """显示关于"""
+        from kernel.event_bus import Events
+        if self._event_bus:
+            self._event_bus.emit(Events.SHOW_ABOUT)
 
     def get_theme(self) -> str:
         return self.theme_combo.currentData()
@@ -523,19 +719,24 @@ class SettingsDialog(FramelessDialog):
     设置窗口
 
     标签页：
-    1. 分类规则 — 增删改分类和匹配规则
-    2. 插件管理 — 启用/禁用插件
+    1. 通用 — 基本设置、悬浮窗、数据管理
+    2. 分类规则 — 增删改分类和匹配规则
+    3. 插件管理 — 启用/禁用插件
     """
 
     def __init__(self, categories: Dict[str, dict],
                  plugins_info: Optional[List[dict]] = None,
                  current_theme: str = "dark",
+                 config=None,
+                 event_bus=None,
                  parent=None):
         super().__init__(title="WindowStatus 设置", parent=parent)
-        self.setFixedSize(720, 520)
+        self.setFixedSize(720, 580)
         self.setStyleSheet(DIALOG_STYLESHEET)
 
         self._on_save_callback: Optional[Callable] = None
+        self._config = config
+        self._event_bus = event_bus
 
         # 使用 FramelessDialog 的 content_layout
         layout = self.content_layout
@@ -546,7 +747,7 @@ class SettingsDialog(FramelessDialog):
         tabs = QTabWidget()
         tabs.setTabBar(CustomTabBar())
 
-        self.general_tab = GeneralTab(current_theme)
+        self.general_tab = GeneralTab(current_theme, config=self._config, event_bus=self._event_bus)
         tabs.addTab(self.general_tab, "通用")
 
         self.categories_tab = CategoriesTab(categories)
