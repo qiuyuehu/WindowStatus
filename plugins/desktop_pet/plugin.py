@@ -225,7 +225,7 @@ class DesktopPetPlugin(Plugin):
         """处理Overlay位置变化事件"""
         self._sync_position(x, y, width, height)
 
-    def _on_pet_drag_move(self, pet_x, pet_y):
+    def _on_pet_drag_move(self, pet_x, pet_y, **kwargs):
         """拖桌宠时反向定位气泡位置"""
         try:
             overlay_plugin = self.get_plugin("overlay")

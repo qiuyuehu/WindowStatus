@@ -306,7 +306,7 @@ class FramelessDialog(QDialog):
         """)
         return btn
 
-    def _on_help(self):
+    def _on_help(self, **kwargs):
         """帮助按钮回调（子类可重写）"""
         pass
 

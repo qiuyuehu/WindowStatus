@@ -218,6 +218,7 @@ class OverlayWidget(QWidget):
             # SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER = 0x0203
             ctypes.windll.user32.SetWindowPos(hwnd, -1, 0, 0, 0, 0, 0x0203)
         except OSError:
+            # 忽略：Win32 API 调用失败（窗口已销毁）
             pass
 
 
@@ -366,7 +367,7 @@ class OverlayPlugin(Plugin):
             self.widget.update()
             self.logger.info(f"Overlay 插件: 主题已切换为 {theme}")
 
-    def _on_widget_close(self, event):
+    def _on_widget_close(self, event, **kwargs):
         """处理悬浮窗关闭事件（最小化到托盘或真正关闭）"""
         if self._force_quit:
             # 真正退出
@@ -413,6 +414,7 @@ class OverlayPlugin(Plugin):
                 # 隐藏窗口：SW_HIDE = 0
                 ctypes.windll.user32.ShowWindow(hwnd, 0)
         except OSError:
+            # 忽略：Win32 API 调用失败（窗口已销毁）
             pass
 
 

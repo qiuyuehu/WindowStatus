@@ -1064,6 +1064,7 @@ class StatsPlugin(Plugin):
             try:
                 self.conn.close()
             except Exception:
+                # 忽略：数据库关闭失败不影响程序退出
                 pass
             self.conn = None
 
@@ -1108,7 +1109,7 @@ class StatsPlugin(Plugin):
         dialog.finished.connect(self._on_dialog_finished)
         dialog.show()
 
-    def _on_dialog_finished(self, result):
+    def _on_dialog_finished(self, result, **kwargs):
         """统计弹窗关闭回调"""
         self._active_dialog = None
 

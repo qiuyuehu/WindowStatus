@@ -709,6 +709,18 @@ class GeneralTab(QWidget):
     def get_theme(self) -> str:
         return self.theme_combo.currentData()
 
+    def get_autostart(self) -> bool:
+        return self._autostart_toggle.isChecked()
+
+    def get_minimize_to_tray(self) -> bool:
+        return self._minimize_toggle.isChecked()
+
+    def get_topmost(self) -> bool:
+        return self._topmost_toggle.isChecked()
+
+    def get_idle_detection(self) -> bool:
+        return self._idle_toggle.isChecked()
+
 
 # ============================================================
 # 设置主窗口
@@ -781,7 +793,11 @@ class SettingsDialog(FramelessDialog):
         result = {
             "categories": self.categories_tab.get_categories(),
             "plugins": self.plugins_tab.get_plugins_config() if self.plugins_tab else None,
-            "theme": self.general_tab.get_theme()
+            "theme": self.general_tab.get_theme(),
+            "autostart": self.general_tab.get_autostart(),
+            "minimize_to_tray": self.general_tab.get_minimize_to_tray(),
+            "topmost": self.general_tab.get_topmost(),
+            "idle_detection": self.general_tab.get_idle_detection(),
         }
         if self._on_save_callback:
             self._on_save_callback(result)

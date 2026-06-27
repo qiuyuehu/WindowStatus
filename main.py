@@ -60,6 +60,7 @@ def _fix_qt_plugin_path():
         if os.path.isdir(qt_dir):
             os.environ["QT_QPA_PLATFORM_PLUGIN_PATH"] = qt_dir
     except Exception:
+        # 忽略：Qt 插件路径修复失败不影响启动
         pass
 
 _fix_qt_plugin_path()

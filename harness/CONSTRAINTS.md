@@ -105,6 +105,7 @@
 以下文件跳过部分历史约束检查：
 - `plugins/stats/dialog.py` — 历史代码，逐步重构
 - `plugins/settings/dialog.py` — 历史代码，逐步重构
+- `plugins/desktop_pet/widget.py` — 特例：Qt.Tool 用于桌宠，鼠标事件通过长按检测处理（不是直接拖拽）
 
 ---
 

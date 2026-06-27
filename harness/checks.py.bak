@@ -22,13 +22,6 @@ PROJECT_ROOT = Path(__file__).parent.parent
 WHITELIST_FILES = [
     "plugins/stats/dialog.py",
     "plugins/settings/dialog.py",
-    "plugins/desktop_pet/widget.py",  # ★ 特例：Qt.Tool 用于桌宠，鼠标事件通过长按检测处理
-    # 约束 1.1 白名单：基类、对话框类插件、无 UI 插件
-    "plugins/base.py",  # 基类，不需要创建 widget
-    "plugins/about/plugin.py",  # 对话框按需创建
-    "plugins/monitor/plugin.py",  # 无 UI 插件
-    "plugins/rules/plugin.py",  # 无 UI 插件
-    "plugins/settings/plugin.py",  # 对话框按需创建
 ]
 
 # 检查结果
@@ -38,8 +31,6 @@ CheckResult = Tuple[str, str, str]  # (文件, 行号, 问题描述)
 def is_whitelisted(filepath: str) -> bool:
     """检查文件是否在白名单中"""
     rel_path = os.path.relpath(filepath, PROJECT_ROOT)
-    # 统一使用正斜杠比较，兼容 Windows 路径
-    rel_path = rel_path.replace("\\", "/")
     return rel_path in WHITELIST_FILES
 
 
@@ -50,20 +41,11 @@ def find_python_files(root: Path) -> List[Path]:
 
 def check_widget_creation_timing(files: List[Path]) -> List[CheckResult]:
     """
-    检查 1.1：on_load() 或 on_enable() 时必须立即创建 Widget
-    支持：
-    - 直接创建（self.xxx = QWidget()）
-    - 调用私有方法（self._create_widget()）
-    - QTimer.singleShot 延迟创建（QTimer.singleShot(xxx, self._create_xxx)）
+    检查 1.1：on_enable() 时必须立即创建 Widget
     """
     results = []
-    pattern = re.compile(r"def (on_load|on_enable)\(self\)")
-    # 直接创建 widget 的模式
+    pattern = re.compile(r"def on_enable\(self\)")
     widget_pattern = re.compile(r"self\.\w+\s*=\s*(QWidget|QLabel|QFrame|QPainter|QDialog)")
-    # 调用私有创建方法的模式（如 _create_widget、_create_pet、_create_tray）
-    create_method_pattern = re.compile(r"self\._create_\w+\(|self\._init_\w+\(")
-    # QTimer.singleShot 延迟创建的模式
-    delayed_create_pattern = re.compile(r"QTimer\.singleShot\(\d+,\s*self\._create_\w+\)")
 
     for filepath in files:
         if is_whitelisted(str(filepath)):
@@ -74,37 +56,25 @@ def check_widget_creation_timing(files: List[Path]) -> List[CheckResult]:
         except Exception:
             continue
 
-        # 查找所有 on_load 或 on_enable 方法
-        matches = list(pattern.finditer(content))
-        if not matches:
+        # 查找 on_enable 方法
+        match = pattern.search(content)
+        if not match:
             continue
 
-        found_creation = False
-        for match in matches:
-            # 检查方法中是否有 widget 创建或调用创建方法
-            start = match.end()
-            # 找到下一个 def 或 class
-            next_def = re.search(r"\n    def |\nclass ", content[start:])
-            if next_def:
-                method_body = content[start:start + next_def.start()]
-            else:
-                method_body = content[start:]
+        # 检查 on_enable 中是否有 widget 创建
+        start = match.end()
+        # 找到下一个 def 或 class
+        next_def = re.search(r"\n    def |\nclass ", content[start:])
+        if next_def:
+            on_enable_body = content[start:start + next_def.start()]
+        else:
+            on_enable_body = content[start:]
 
-            # 检查是否有直接创建、调用创建方法、或延迟创建
-            has_direct_creation = widget_pattern.search(method_body)
-            has_create_method = create_method_pattern.search(method_body)
-            has_delayed_creation = delayed_create_pattern.search(method_body)
-
-            if has_direct_creation or has_create_method or has_delayed_creation:
-                found_creation = True
-                break
-
-        if not found_creation:
-            # 所有方法都没有创建逻辑
+        if not widget_pattern.search(on_enable_body):
             results.append((
                 str(filepath),
-                str(content[:matches[0].start()].count("\n") + 1),
-                "on_load()/on_enable() 中未发现 Widget 创建或创建方法调用（约束 1.1）"
+                str(content[:match.start()].count("\n") + 1),
+                "on_enable() 中未发现 Widget 创建（约束 1.1）"
             ))
 
     return results
@@ -169,12 +139,9 @@ def check_qdesktop_widget(files: List[Path]) -> List[CheckResult]:
 def check_event_handler_kwargs(files: List[Path]) -> List[CheckResult]:
     """
     检查 2.3：所有 EventBus handler 必须有 **kwargs 参数
-    排除生命周期方法（on_load、on_unload、on_enable、on_disable）
     """
     results = []
     handler_pattern = re.compile(r"def (on_\w+|_on_\w+)\(self[^)]*\)")
-    # ★ 排除生命周期方法，它们不是 EventBus handler
-    lifecycle_methods = {"on_load", "on_unload", "on_enable", "on_disable"}
 
     for filepath in files:
         if is_whitelisted(str(filepath)):
@@ -187,14 +154,6 @@ def check_event_handler_kwargs(files: List[Path]) -> List[CheckResult]:
 
         for match in handler_pattern.finditer(content):
             sig = match.group(0)
-            # 提取方法名
-            method_name_match = re.search(r"def (\w+)", sig)
-            if method_name_match:
-                method_name = method_name_match.group(1)
-                # 跳过生命周期方法
-                if method_name in lifecycle_methods:
-                    continue
-
             if "**kwargs" not in sig and "**kw" not in sig:
                 line_num = content[:match.start()].count("\n") + 1
                 results.append((
@@ -300,12 +259,12 @@ def main():
     if result["violations"]:
         print("\n违规详情：")
         for v in result["violations"]:
-            print(f"  [FAIL] {v}")
+            print(f"  ✗ {v}")
         print("\n约束检查失败，阻塞测试运行。")
         print("请修复上述违规后重试。")
         sys.exit(1)
     else:
-        print("\n[PASS] 所有约束检查通过")
+        print("\n✓ 所有约束检查通过")
         sys.exit(0)
 
 

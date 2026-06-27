@@ -145,6 +145,7 @@ class EventBus:
                 try:
                     self._handlers[event].remove(handler)
                 except ValueError:
+                    # 忽略：handler 不存在时 remove 会抛 ValueError
                     pass
     
     def off_all(self, event: str) -> None:
