@@ -10,7 +10,6 @@ from datetime import datetime, timedelta
 from typing import List, Tuple, Optional
 
 from plugins.base import Plugin
-from plugins.utils import format_duration
 from kernel.event_bus import Events
 
 
@@ -27,6 +26,9 @@ class StatsPlugin(Plugin):
     name = "stats"
     version = "1.0.0"
     description = "统计插件，记录和查询使用统计数据"
+
+    # 备份保留天数
+    BACKUP_KEEP_DAYS = 7
     
     def __init__(self, kernel):
         super().__init__(kernel)
@@ -194,13 +196,13 @@ class StatsPlugin(Plugin):
             shutil.copy2(self.db_path, backup_path)
             self.logger.info(f"Stats 插件: 数据库已备份到 {backup_path}")
             
-            # 清理旧备份（保留最近 7 天）
-            self._cleanup_old_backups(backup_dir, keep_days=7)
+            # 清理旧备份
+            self._cleanup_old_backups(backup_dir, keep_days=self.BACKUP_KEEP_DAYS)
             
         except Exception as e:
             self.logger.error(f"Stats 插件: 数据库备份失败: {e}")
     
-    def _cleanup_old_backups(self, backup_dir: str, keep_days: int = 7):
+    def _cleanup_old_backups(self, backup_dir: str, keep_days: int = BACKUP_KEEP_DAYS):
         """清理旧备份文件"""
         import glob
         from datetime import datetime, timedelta
@@ -224,6 +226,7 @@ class StatsPlugin(Plugin):
                         os.remove(backup_file)
                         self.logger.debug(f"Stats 插件: 已删除旧备份 {filename}")
                 except (ValueError, OSError):
+                    # 忽略：文件名格式不对或删除失败，跳过继续处理下一个
                     continue
                     
         except Exception as e:

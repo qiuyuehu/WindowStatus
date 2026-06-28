@@ -10,7 +10,7 @@ from PyQt5.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QSplitter, QTabWidget,
     QListWidget, QListWidgetItem, QTableWidget, QTableWidgetItem,
     QHeaderView, QPushButton, QLabel, QComboBox, QLineEdit,
-    QInputDialog, QMessageBox, QWidget, QAbstractItemView, QCheckBox
+    QInputDialog, QMessageBox, QWidget, QAbstractItemView
 )
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
@@ -19,10 +19,10 @@ from plugins.common_styles import (
     COLOR_BG_PRIMARY, COLOR_BG_SECONDARY, COLOR_BG_TERTIARY,
     COLOR_TEXT_PRIMARY, COLOR_TEXT_SECONDARY, COLOR_TEXT_MUTED,
     COLOR_BORDER, COLOR_BORDER_SUBTLE, COLOR_PRIMARY,
-    COLOR_PRIMARY_HOVER, COLOR_PRIMARY_PRESSED,
-    FONT_SIZE_TITLE, FONT_SIZE_SUBTITLE, FONT_SIZE_BODY, FONT_SIZE_CAPTION,
-    SPACING_SM, SPACING_MD, SPACING_LG,
-    RADIUS_SM, RADIUS_MD, RADIUS_LG,
+    COLOR_PRIMARY_HOVER,
+    FONT_SIZE_SUBTITLE, FONT_SIZE_BODY, FONT_SIZE_CAPTION,
+    SPACING_SM,
+    RADIUS_SM,
 )
 
 

@@ -4,7 +4,7 @@ About 插件 - 插件层
 提供"关于"窗口，展示应用信息和作者署名
 """
 
-from PyQt5.QtWidgets import QVBoxLayout, QLabel, QPushButton
+from PyQt5.QtWidgets import QLabel, QPushButton
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
 
@@ -12,11 +12,11 @@ from plugins.base import Plugin
 from plugins.utils import FramelessDialog
 from kernel.event_bus import Events
 from plugins.common_styles import (
-    COLOR_BG_PRIMARY, COLOR_BG_SECONDARY, COLOR_BG_TERTIARY,
-    COLOR_TEXT_PRIMARY, COLOR_TEXT_SECONDARY, COLOR_TEXT_MUTED,
+    COLOR_BG_SECONDARY, COLOR_BG_TERTIARY,
+    COLOR_TEXT_PRIMARY, COLOR_TEXT_SECONDARY,
     COLOR_BORDER, COLOR_PRIMARY,
     FONT_SIZE_BODY,
-    SPACING_SM, SPACING_MD,
+    SPACING_SM,
     RADIUS_MD,
 )
 

@@ -15,10 +15,24 @@ from PyQt5.QtGui import QPixmap, QPainter
 class DesktopPetWidget(QWidget):
     """
     桌宠控件
-    
+
     附着在Overlay气泡下方，显示静态图片
     """
-    
+
+    # 窗口默认尺寸
+    DEFAULT_SIZE = 256
+
+    # 长按判定阈值（毫秒）
+    LONG_PRESS_MS = 200
+
+    # TOPMOST 维护定时器间隔（毫秒）
+    TOPMOST_INTERVAL_MS = 1000
+    # 置顶切换后重新启用定时器的间隔（毫秒，更长避免抖动）
+    TOPMOST_RESTORE_INTERVAL_MS = 3000
+
+    # 屏幕边界安全边距（像素）
+    SCREEN_MARGIN_PX = 20
+
     # 分类到状态的映射（中文）
     CATEGORY_TO_STATE = {
         "办公": "坐着",
@@ -70,13 +84,13 @@ class DesktopPetWidget(QWidget):
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setWindowTitle("WindowStatus - 桌宠")
-        self.setFixedSize(256, 256)
+        self.setFixedSize(self.DEFAULT_SIZE, self.DEFAULT_SIZE)
 
         # TOPMOST 维护定时器（每 1 秒用 Win32 SetWindowPos 强制刷新置顶状态）
         self._always_on_top = True  # 跟踪置顶状态
         self._topmost_timer = QTimer()
         self._topmost_timer.timeout.connect(self._maintain_topmost)
-        self._topmost_timer.start(1000)
+        self._topmost_timer.start(self.TOPMOST_INTERVAL_MS)
         
         # 加载所有状态的图片
         self._images = {}
@@ -143,13 +157,14 @@ class DesktopPetWidget(QWidget):
             # SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER = 0x0203
             ctypes.windll.user32.SetWindowPos(hwnd, -1, 0, 0, 0, 0, 0x0203)
         except OSError:
+            # 忽略：Win32 API 调用失败（窗口已销毁）
             pass
 
     def set_always_on_top(self, enabled: bool):
         """设置置顶状态（供插件层调用）"""
         self._always_on_top = enabled
         if enabled:
-            self._topmost_timer.start(3000)
+            self._topmost_timer.start(self.TOPMOST_RESTORE_INTERVAL_MS)
             self._maintain_topmost()  # 立即刷新一次
         else:
             self._topmost_timer.stop()
@@ -169,7 +184,7 @@ class DesktopPetWidget(QWidget):
         if event.button() == Qt.LeftButton:
             self._drag_pending = True
             self._long_press_pos = event.globalPos() - self.pos()
-            self._long_press_timer.start(200)  # 200ms 后确认为长按
+            self._long_press_timer.start(self.LONG_PRESS_MS)  # 长按阈值
             event.accept()
     
     def mouseMoveEvent(self, event):
@@ -179,8 +194,8 @@ class DesktopPetWidget(QWidget):
             # 屏幕边界检测
             from PyQt5.QtWidgets import QApplication
             screen = QApplication.primaryScreen().geometry()
-            x = max(screen.left(), min(new_pos.x(), screen.right() - self.width() + 20))
-            y = max(screen.top(), min(new_pos.y(), screen.bottom() - self.height() + 20))
+            x = max(screen.left(), min(new_pos.x(), screen.right() - self.width() + self.SCREEN_MARGIN_PX))
+            y = max(screen.top(), min(new_pos.y(), screen.bottom() - self.height() + self.SCREEN_MARGIN_PX))
             self.move(x, y)
             # 通知外部（气泡）同步位置
             if self._on_drag_move_callback:

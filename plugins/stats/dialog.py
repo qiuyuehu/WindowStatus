@@ -8,12 +8,12 @@ from typing import List, Tuple, Dict, Callable, Optional
 
 from PyQt5.QtCore import Qt, QRectF, QPointF
 from PyQt5.QtGui import (
-    QPainter, QColor, QPen, QFont, QBrush, QPainterPath
+    QPainter, QColor, QPen, QFont
 )
 from PyQt5.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QTabWidget, QTableWidget,
+    QVBoxLayout, QHBoxLayout, QTabWidget, QTableWidget,
     QTableWidgetItem, QHeaderView, QPushButton, QWidget, QLabel,
-    QSizePolicy, QMessageBox, QFileDialog
+    QSizePolicy, QMessageBox
 )
 
 from plugins.utils import format_duration, format_timestamp, CustomTabBar, FramelessDialog
@@ -21,10 +21,10 @@ from plugins.common_styles import (
     COLOR_BG_PRIMARY, COLOR_BG_SECONDARY, COLOR_BG_TERTIARY,
     COLOR_TEXT_PRIMARY, COLOR_TEXT_SECONDARY, COLOR_TEXT_MUTED,
     COLOR_BORDER, COLOR_BORDER_SUBTLE, COLOR_PRIMARY,
-    COLOR_PRIMARY_HOVER, COLOR_PRIMARY_PRESSED,
+    COLOR_PRIMARY_HOVER,
     COLOR_ERROR,
-    FONT_SIZE_TITLE, FONT_SIZE_SUBTITLE, FONT_SIZE_BODY, FONT_SIZE_CAPTION,
-    SPACING_SM, SPACING_MD, SPACING_LG,
+    FONT_SIZE_SUBTITLE, FONT_SIZE_BODY,
+    SPACING_SM, SPACING_LG,
     RADIUS_SM, RADIUS_MD, RADIUS_LG,
     oklch_to_qcolor,
 )

@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Optional
 
 from PyQt5.QtWidgets import QWidget
-from PyQt5.QtCore import Qt, QPoint, QTimer, QRectF, QPointF
+from PyQt5.QtCore import Qt, QTimer, QRectF, QPointF
 from PyQt5.QtGui import QPainter, QColor, QPainterPath, QFont
 
 from plugins.base import Plugin
@@ -27,6 +27,10 @@ class OverlayWidget(QWidget):
     BUBBLE_HEIGHT = 70
     BUBBLE_RADIUS = 20
     DOT_RADIUS = 3  # 小气泡半径（更小）
+
+    # 定时器间隔（毫秒）
+    DURATION_INTERVAL_MS = 1000  # 时长刷新
+    TOPMOST_INTERVAL_MS = 1000  # TOPMOST 维护
 
     def __init__(self, config: dict, on_close=None):
         super().__init__()
@@ -76,13 +80,13 @@ class OverlayWidget(QWidget):
         # 时长更新定时器
         self.duration_timer = QTimer()
         self.duration_timer.timeout.connect(self._update_duration)
-        self.duration_timer.start(1000)
+        self.duration_timer.start(self.DURATION_INTERVAL_MS)
 
-        # TOPMOST 维护定时器（每 1 秒用 Win32 SetWindowPos 强制刷新置顶状态）
+        # TOPMOST 维护定时器（每秒用 Win32 SetWindowPos 强制刷新置顶状态）
         # 解决 Windows 系统抢占 TOPMOST、浏览器/cmd 抢焦点后丢失置顶等问题
         self._topmost_timer = QTimer()
         self._topmost_timer.timeout.connect(self._maintain_topmost)
-        self._topmost_timer.start(1000)
+        self._topmost_timer.start(self.TOPMOST_INTERVAL_MS)
 
         # 应用透明度
         self.setWindowOpacity(config.get("opacity", 0.9))
@@ -200,7 +204,7 @@ class OverlayWidget(QWidget):
 
         # 启停 TOPMOST 维护定时器
         if enabled:
-            self._topmost_timer.start(1000)  # ★ 改成1秒，和桌宠一致
+            self._topmost_timer.start(self.TOPMOST_INTERVAL_MS)
             self._maintain_topmost()  # 立即刷新一次
         else:
             self._topmost_timer.stop()
