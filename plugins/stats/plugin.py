@@ -870,9 +870,9 @@ class StatsPlugin(Plugin):
             cursor.execute('''
                 SELECT category, total_duration
                 FROM monthly_stats
-                WHERE year = ? AND month = ?
+                WHERE month = ?
                 ORDER BY total_duration DESC
-            ''', (last_month_start.year, last_month_start.month))
+            ''', (last_month_start.strftime("%Y-%m"),))
             result = cursor.fetchall()
             if result:
                 return result
