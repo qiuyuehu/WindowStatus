@@ -135,7 +135,7 @@ class SettingsPlugin(Plugin):
 
                 minimize_to_tray = result.get("minimize_to_tray")
                 if minimize_to_tray is not None:
-                    self.config.set("minimize-to-tray", minimize_to_tray)
+                    self.config.set("minimize_to_tray", minimize_to_tray)
                     self.logger.info(f"Settings 插件: 最小化到托盘 -> {minimize_to_tray}")
 
                 topmost = result.get("topmost")
@@ -171,16 +171,16 @@ class SettingsPlugin(Plugin):
                 exe_path = os.path.abspath(sys.argv[0])
 
             key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path, 0, winreg.KEY_SET_VALUE)
-
-            if enabled:
-                winreg.SetValueEx(key, app_name, 0, winreg.REG_SZ, f'"{exe_path}"')
-            else:
-                try:
-                    winreg.DeleteValue(key, app_name)
-                except FileNotFoundError:
-                    pass  # 键不存在，忽略
-
-            winreg.CloseKey(key)
+            try:
+                if enabled:
+                    winreg.SetValueEx(key, app_name, 0, winreg.REG_SZ, f'"{exe_path}"')
+                else:
+                    try:
+                        winreg.DeleteValue(key, app_name)
+                    except FileNotFoundError:
+                        pass  # 键不存在，忽略
+            finally:
+                winreg.CloseKey(key)
         except Exception as e:
             self.logger.error(f"Settings 插件: 设置开机自启失败: {e}")
 
