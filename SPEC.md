@@ -1,9 +1,9 @@
 # WindowStatus 项目规格文档
 
-> 最后更新：2026-06-13-08:30
-> 基于 devlog 更新至：2026-06-13
-> 当前版本：v3.4.0
-> 总代码行数：~8000 行（37 个 Python 文件 + 7 个测试文件）
+> 最后更新：2026-06-28-16:00
+> 基于 devlog 更新至：2026-06-28
+> 当前版本：v3.5.0
+> 总代码行数：~8500 行（38 个 Python 文件 + 7 个测试文件）
 
 ---
 
@@ -53,32 +53,33 @@ WindowStatus 是一个 Windows 桌面窗口状态显示器，监控用户当前�
 
 ```
 WindowStatus/
-├── main.py                    # 入口（233行）
+├── main.py                    # 入口（234行）
 │   ├── _setup_excepthook()    # 全局异常钩子
 │   ├── _fix_qt_plugin_path()  # Qt 平台插件路径修复
 │   └── WindowStatusApp        # 主应用类
-├── kernel/                    # 核心层（4个文件，~1300行）
+├── kernel/                    # 核心层（4个文件，~1326行）
 │   ├── core.py                # Kernel 类（144行）
-│   ├── event_bus.py           # EventBus + Events 常量（244行）
+│   ├── event_bus.py           # EventBus + Events 常量（245行）
 │   ├── config.py              # Config 配置管理（492行）
 │   └── plugin_manager.py      # PluginManager 插件加载/卸载（434行）
-├── plugins/                   # 插件层（8个插件）
+├── plugins/                   # 插件层（8个插件 + 通用样式模块）
 │   ├── base.py                # Plugin 基类（130行）
-│   ├── utils.py               # 插件工具函数 + ToggleSwitch 组件
+│   ├── utils.py               # 插件工具函数 + ToggleSwitch 组件（431行）
+│   ├── common_styles.py       # 通用样式模块（191行，oklch 配色）
 │   ├── monitor/plugin.py      # 窗口监控（282行）
-│   ├── overlay/plugin.py      # 悬浮气泡（386行）
+│   ├── overlay/plugin.py      # 悬浮气泡（426行）
 │   ├── desktop_pet/
-│   │   ├── plugin.py          # 桌宠逻辑（408行）
-│   │   └── widget.py          # 桌宠 Widget
+│   │   ├── plugin.py          # 桌宠逻辑（403行）
+│   │   └── widget.py          # 桌宠 Widget（219行）
 │   ├── rules/plugin.py        # 分类规则（243行）
 │   ├── stats/
-│   │   ├── plugin.py          # 统计逻辑（1039行）
-│   │   └── dialog.py          # 统计弹窗（705行）
+│   │   ├── plugin.py          # 统计逻辑（1121行）
+│   │   └── dialog.py          # 统计弹窗（733行）
 │   ├── settings/
-│   │   ├── plugin.py          # 设置插件
-│   │   └── dialog.py          # 设置弹窗（604行）
-│   ├── tray/plugin.py         # 系统托盘（356行）
-│   └── about/plugin.py        # 关于页面
+│   │   ├── plugin.py          # 设置插件（189行）
+│   │   └── dialog.py          # 设置弹窗（820行）
+│   ├── tray/plugin.py         # 系统托盘（230行）
+│   └── about/plugin.py        # 关于页面（169行）
 ├── tests/                     # 单元测试（7个文件，~1500行）
 │   ├── test_event_bus.py      # EventBus 测试（270行）
 │   ├── test_config.py         # Config 测试（265行）
@@ -87,6 +88,14 @@ WindowStatus/
 │   ├── test_rules.py          # 规则测试（240行）
 │   ├── test_state_machine.py  # 状态机测试（175行）
 │   └── test_utils.py          # 工具测试（87行）
+├── harness/                   # Harness 工程规范
+│   ├── SPEC.md                # Harness 工程规范
+│   ├── CONSTRAINTS.md         # 代码约束（自动检查）
+│   ├── DECISIONS.md           # 决策档案（只增不改）
+│   ├── TEST_CONVENTIONS.md    # 测试规范
+│   ├── checks.py              # 约束自动检查脚本
+│   └── runner.py              # 测试入口
+├── docs/plans/                # 执行方案
 ├── build.py                   # PyInstaller 打包脚本（179行）
 ├── assets/                    # 资源文件
 ├── docs/specs/                # 功能规格
@@ -383,13 +392,15 @@ python build.py
 
 ## 十二、技术债务
 
-| 编号 | 描述 | 优先级 |
-|------|------|--------|
-| 1 | 没有导入功能（只有导出） | 低 |
-| 2 | 单元测试覆盖不全 | 中 |
-| 3 | API 文档缺失 | 低 |
-| 4 | 大量规则时匹配性能 | 低 |
-| 5 | 只在 Win10/11 测试过 | 低 |
+| 编号 | 描述 | 优先级 | 状态 |
+|------|------|--------|------|
+| 1 | 没有导入功能（只有导出） | 低 | 待定 |
+| 2 | 单元测试覆盖不全 | 中 | P3 计划全覆盖 |
+| 3 | API 文档缺失 | 低 | 待定 |
+| 4 | 大量规则时匹配性能 | 低 | 待定 |
+| 5 | 只在 Win10/11 测试过 | 低 | 待定 |
+| 6 | 弹窗样式统一 | 高 | ✅ v3.5.0 完成 |
+| 7 | 代码清理（空catch/魔法数字） | 中 | ✅ v3.5.0 完成 |
 
 ---
 
@@ -408,6 +419,7 @@ python build.py
 | v3.3.4 | 2026-05-31 | 统计界面重做 + 桌宠记住位置 + SummaryCard 重构 |
 | — | 2026-06-03 | 删除 Reminders 插件 |
 | v3.4.0 | 2026-06-13 | 视觉重设计（暗色配色/自绘组件/设置侧边栏/功能迁移） |
+| v3.5.0 | 2026-06-28 | 弹窗样式统一（oklch配色/common_styles模块）、代码清理（空catch/魔法数字/未使用import） |
 
 ---
 
