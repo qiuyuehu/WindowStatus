@@ -17,6 +17,16 @@ from PyQt5.QtWidgets import (
 )
 
 from plugins.utils import format_duration, format_timestamp, CustomTabBar, FramelessDialog
+from plugins.common_styles import (
+    COLOR_BG_PRIMARY, COLOR_BG_SECONDARY, COLOR_BG_TERTIARY,
+    COLOR_TEXT_PRIMARY, COLOR_TEXT_SECONDARY, COLOR_TEXT_MUTED,
+    COLOR_BORDER, COLOR_BORDER_SUBTLE, COLOR_PRIMARY,
+    COLOR_PRIMARY_HOVER, COLOR_PRIMARY_PRESSED,
+    FONT_SIZE_TITLE, FONT_SIZE_SUBTITLE, FONT_SIZE_BODY, FONT_SIZE_CAPTION,
+    SPACING_SM, SPACING_MD, SPACING_LG,
+    RADIUS_SM, RADIUS_MD, RADIUS_LG,
+    oklch_to_qcolor,
+)
 
 # 默认图标（分类没有配置 icon 时使用）
 DEFAULT_ICON = "❓"
@@ -24,50 +34,50 @@ DEFAULT_ICON = "❓"
 
 # ── 暗色主题样式表 ──────────────────────────────────────────────
 
-STYLESHEET = """
-QDialog {
-    color: #e8e8e8;
-}
-QTabWidget::pane {
+STYLESHEET = f"""
+QDialog {{
+    color: {COLOR_TEXT_PRIMARY.name()};
+}}
+QTabWidget::pane {{
     border: none;
-    background-color: #121212;
-}
-QTableWidget {
-    background-color: #1a1a1a;
-    color: #e8e8e8;
+    background-color: {COLOR_BG_PRIMARY.name()};
+}}
+QTableWidget {{
+    background-color: {COLOR_BG_SECONDARY.name()};
+    color: {COLOR_TEXT_PRIMARY.name()};
     border: none;
-    gridline-color: #1e1e1e;
+    gridline-color: {COLOR_BORDER_SUBTLE.name()};
     font-size: 12px;
-}
-QTableWidget::item {
+}}
+QTableWidget::item {{
     padding: 4px 8px;
-}
-QHeaderView::section {
+}}
+QHeaderView::section {{
     background-color: #0f0f0f;
-    color: #e8e8e8;
+    color: {COLOR_TEXT_PRIMARY.name()};
     padding: 6px 8px;
     border: none;
     font-size: 12px;
-}
-QPushButton {
-    background-color: #1a1a1a;
-    color: #e8e8e8;
-    border: 1px solid #333;
-    padding: 8px 24px;
-    border-radius: 6px;
-    font-size: 13px;
-}
-QPushButton:hover {
-    background-color: #252525;
-}
-QPushButton#primary {
-    background-color: #d97706;
+}}
+QPushButton {{
+    background-color: {COLOR_BG_SECONDARY.name()};
+    color: {COLOR_TEXT_PRIMARY.name()};
+    border: 1px solid {COLOR_BORDER.name()};
+    padding: {SPACING_SM}px {SPACING_LG}px;
+    border-radius: {RADIUS_MD}px;
+    font-size: {FONT_SIZE_BODY}px;
+}}
+QPushButton:hover {{
+    background-color: {COLOR_BG_TERTIARY.name()};
+}}
+QPushButton#primary {{
+    background-color: {COLOR_PRIMARY.name()};
     color: #fff;
     border: none;
-}
-QPushButton#primary:hover {
-    background-color: #b45309;
-}
+}}
+QPushButton#primary:hover {{
+    background-color: {COLOR_PRIMARY_HOVER.name()};
+}}
 """
 
 
@@ -92,25 +102,27 @@ class SummaryCard(QWidget):
         grid.setSpacing(0)
 
         # 副标题行（row 0）
+        sub_style = (f"font-size: {FONT_SIZE_SUBTITLE}px; font-weight: bold;"
+                     f" color: {COLOR_TEXT_SECONDARY.name()};")
+
         self._total_sub = QLabel(total_label)
-        self._total_sub.setStyleSheet(
-            "font-size: 14px; font-weight: bold; color: #999;")
+        self._total_sub.setStyleSheet(sub_style)
         self._total_sub.setAlignment(Qt.AlignCenter)
 
         self._top_sub = QLabel("最常用分类")
-        self._top_sub.setStyleSheet(
-            "font-size: 14px; font-weight: bold; color: #999;")
+        self._top_sub.setStyleSheet(sub_style)
         self._top_sub.setAlignment(Qt.AlignCenter)
 
         self._compare_sub = QLabel(compare_label)
-        self._compare_sub.setStyleSheet(
-            "font-size: 14px; font-weight: bold; color: #999;")
+        self._compare_sub.setStyleSheet(sub_style)
         self._compare_sub.setAlignment(Qt.AlignCenter)
 
         # 主数据行（row 1）
+        val_style = (f"font-size: {FONT_SIZE_SUBTITLE}px;"
+                     f" color: {COLOR_TEXT_PRIMARY.name()};")
+
         self._total_value = QLabel(format_duration(total_seconds))
-        self._total_value.setStyleSheet(
-            "font-size: 14px; color: #e8e8e8;")
+        self._total_value.setStyleSheet(val_style)
         self._total_value.setAlignment(Qt.AlignCenter)
 
         if top_category:
@@ -118,30 +130,29 @@ class SummaryCard(QWidget):
         else:
             center_text = "暂无数据"
         self._top_value = QLabel(center_text)
-        self._top_value.setStyleSheet(
-            "font-size: 14px; color: #e8e8e8;")
+        self._top_value.setStyleSheet(val_style)
         self._top_value.setAlignment(Qt.AlignCenter)
 
         if compare_total > 0 and total_seconds > 0:
             diff_pct = (total_seconds - compare_total) / compare_total * 100
             if diff_pct >= 0:
                 compare_text = f"{compare_prefix}多 {diff_pct:.0f}%"
-                color = "#d97706"
+                color = COLOR_PRIMARY.name()
             else:
                 compare_text = f"{compare_prefix}少 {abs(diff_pct):.0f}%"
-                color = "#ff6b6b"
+                color = COLOR_ERROR.name()
         elif compare_total == 0 and total_seconds > 0:
             compare_text = "上期无数据"
-            color = "#666"
+            color = COLOR_TEXT_MUTED.name()
         elif total_seconds == 0:
             compare_text = "暂无数据"
-            color = "#666"
+            color = COLOR_TEXT_MUTED.name()
         else:
             compare_text = "无对比数据"
-            color = "#666"
+            color = COLOR_TEXT_MUTED.name()
         self._compare_value = QLabel(compare_text)
         self._compare_value.setStyleSheet(
-            f"font-size: 14px; color: {color};")
+            f"font-size: {FONT_SIZE_SUBTITLE}px; color: {color};")
         self._compare_value.setAlignment(Qt.AlignCenter)
 
         # 布局：row 0 = 副标题，row 1 = 主数据
@@ -162,12 +173,12 @@ class SummaryCard(QWidget):
         """绘制卡片背景和分隔线"""
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
-        painter.setBrush(QColor("#1a1a1a"))
+        painter.setBrush(COLOR_BG_SECONDARY)
         painter.setPen(Qt.NoPen)
-        painter.drawRoundedRect(self.rect(), 12, 12)
+        painter.drawRoundedRect(self.rect(), RADIUS_LG, RADIUS_LG)
 
         # 三列之间的分隔线（与 grid 列边界对齐）
-        painter.setPen(QPen(QColor("#333"), 1))
+        painter.setPen(QPen(COLOR_BORDER, 1))
         w = self.width()
         h = self.height()
         margin_top = int(h * 0.15)
@@ -186,16 +197,16 @@ class SummaryCard(QWidget):
 class DonutChart(QWidget):
     """环形占比图，QPainter 自绘"""
 
-    # 备用颜色（分类没有配置颜色时使用）
+    # 备用颜色（oklch 生成，分类没有配置颜色时使用）
     FALLBACK_COLORS = [
-        (78, 205, 196),    # 青
-        (255, 107, 107),   # 红
-        (255, 230, 109),   # 黄
-        (107, 185, 255),   # 蓝
-        (199, 128, 255),   # 紫
-        (255, 159, 67),    # 橙
-        (100, 210, 170),   # 绿
-        (255, 145, 175),   # 粉
+        oklch_to_qcolor(0.7, 0.15, 25),   # 红
+        oklch_to_qcolor(0.7, 0.15, 70),   # 黄
+        oklch_to_qcolor(0.7, 0.15, 145),  # 绿
+        oklch_to_qcolor(0.7, 0.15, 230),  # 蓝
+        oklch_to_qcolor(0.7, 0.15, 300),  # 紫
+        oklch_to_qcolor(0.7, 0.15, 30),   # 橙
+        oklch_to_qcolor(0.7, 0.15, 180),  # 青
+        oklch_to_qcolor(0.7, 0.15, 340),  # 粉
     ]
 
     def __init__(self, data: List[Tuple[str, int]],
@@ -223,14 +234,14 @@ class DonutChart(QWidget):
 
         if total == 0 or not self._data:
             # 空数据：灰色空圆环
-            pen = QPen(QColor(42, 42, 42), outer_r - inner_r)
+            pen = QPen(COLOR_BORDER, outer_r - inner_r)
             pen.setCapStyle(Qt.FlatCap)
             painter.setPen(pen)
             painter.setBrush(Qt.NoBrush)
             mid_r = (outer_r + inner_r) / 2
             painter.drawEllipse(QPointF(cx, cy), mid_r, mid_r)
             # 中间文字
-            painter.setPen(QColor("#666"))
+            painter.setPen(COLOR_TEXT_MUTED)
             font = QFont()
             font.setPointSize(10)
             painter.setFont(font)
@@ -253,8 +264,7 @@ class DonutChart(QWidget):
             if color_list and len(color_list) >= 3:
                 color = QColor(*color_list[:3])
             else:
-                fb = self.FALLBACK_COLORS[i % len(self.FALLBACK_COLORS)]
-                color = QColor(*fb)
+                color = self.FALLBACK_COLORS[i % len(self.FALLBACK_COLORS)]
 
             # 计算角度
             ratio = duration / total
@@ -274,14 +284,14 @@ class DonutChart(QWidget):
             start_angle += span_angle + int(gap_angle * 16)
 
         # 中间总时长
-        painter.setPen(QColor("#e8e8e8"))
+        painter.setPen(COLOR_TEXT_PRIMARY)
         font = QFont()
         font.setPointSize(11)
         font.setBold(True)
         painter.setFont(font)
         painter.drawText(QRectF(0, 72, 180, 28),
                          Qt.AlignCenter, f"{total // 3600}:{(total % 3600) // 60:02d}:{total % 60:02d}")
-        painter.setPen(QColor("#999"))
+        painter.setPen(COLOR_TEXT_SECONDARY)
         font.setPointSize(9)
         font.setBold(False)
         painter.setFont(font)
@@ -315,7 +325,8 @@ class CategoryRow(QWidget):
 
         # emoji + 分类名
         name_label = QLabel(f"{icon}  {name}")
-        name_label.setStyleSheet("font-size: 13px; color: #e8e8e8;")
+        name_label.setStyleSheet(
+            f"font-size: {FONT_SIZE_BODY}px; color: {COLOR_TEXT_PRIMARY.name()};")
         name_label.setFixedWidth(60)
         name_label.setAlignment(Qt.AlignVCenter)
 
@@ -326,7 +337,8 @@ class CategoryRow(QWidget):
 
         # 时长
         dur_label = QLabel(format_duration(duration))
-        dur_label.setStyleSheet("font-size: 12px; color: #999;")
+        dur_label.setStyleSheet(
+            f"font-size: 12px; color: {COLOR_TEXT_SECONDARY.name()};")
         dur_label.setFixedWidth(70)
         dur_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
 
@@ -336,7 +348,8 @@ class CategoryRow(QWidget):
         else:
             pct_text = f"{percent:.0f}%"
         pct_label = QLabel(pct_text)
-        pct_label.setStyleSheet("font-size: 12px; color: #999;")
+        pct_label.setStyleSheet(
+            f"font-size: 12px; color: {COLOR_TEXT_SECONDARY.name()};")
         pct_label.setFixedWidth(40)
         pct_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
 
@@ -362,15 +375,15 @@ class _ProgressBar(QWidget):
         h = self.height()
 
         # 背景条
-        painter.setBrush(QColor("#2a2a2a"))
+        painter.setBrush(COLOR_BG_TERTIARY)
         painter.setPen(Qt.NoPen)
-        painter.drawRoundedRect(0, 0, w, h, 4, 4)
+        painter.drawRoundedRect(0, 0, w, h, RADIUS_SM, RADIUS_SM)
 
         # 填充条
         if self._percent > 0:
-            fill_w = max(4, int(w * self._percent / 100))
+            fill_w = max(RADIUS_SM, int(w * self._percent / 100))
             painter.setBrush(self._color)
-            painter.drawRoundedRect(0, 0, fill_w, h, 4, 4)
+            painter.drawRoundedRect(0, 0, fill_w, h, RADIUS_SM, RADIUS_SM)
 
 
 # ── 主弹窗 ─────────────────────────────────────────────────────
@@ -379,9 +392,9 @@ def _paint_card_bg(widget, event):
     """绘制卡片背景（供 lambda 复用）"""
     painter = QPainter(widget)
     painter.setRenderHint(QPainter.Antialiasing)
-    painter.setBrush(QColor("#1a1a1a"))
+    painter.setBrush(COLOR_BG_SECONDARY)
     painter.setPen(Qt.NoPen)
-    painter.drawRoundedRect(widget.rect(), 12, 12)
+    painter.drawRoundedRect(widget.rect(), RADIUS_LG, RADIUS_LG)
 
 
 class StatsDialog(FramelessDialog):
@@ -631,17 +644,17 @@ class StatsDialog(FramelessDialog):
         if record_count > 0:
             count_label = QLabel(f"{record_count} 条记录")
             count_label.setStyleSheet(
-                "font-size: 18px; font-weight: bold; color: #e8e8e8;")
+                f"font-size: 18px; font-weight: bold; color: {COLOR_TEXT_PRIMARY.name()};")
             summary_layout.addWidget(count_label)
 
             dur_label = QLabel(format_duration(total_duration))
             dur_label.setStyleSheet(
-                "font-size: 18px; font-weight: bold; color: #e8e8e8; margin-left: 24px;")
+                f"font-size: 18px; font-weight: bold; color: {COLOR_TEXT_PRIMARY.name()}; margin-left: 24px;")
             summary_layout.addWidget(dur_label)
         else:
             empty_label = QLabel("暂无数据")
             empty_label.setStyleSheet(
-                "font-size: 14px; color: #666;")
+                f"font-size: 14px; color: {COLOR_TEXT_MUTED.name()};")
             summary_layout.addWidget(empty_label)
 
         summary_layout.addStretch()

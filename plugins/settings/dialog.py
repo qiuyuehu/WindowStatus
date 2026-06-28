@@ -15,92 +15,101 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
 from plugins.utils import CustomTabBar, FramelessDialog, ToggleSwitch
+from plugins.common_styles import (
+    COLOR_BG_PRIMARY, COLOR_BG_SECONDARY, COLOR_BG_TERTIARY,
+    COLOR_TEXT_PRIMARY, COLOR_TEXT_SECONDARY, COLOR_TEXT_MUTED,
+    COLOR_BORDER, COLOR_BORDER_SUBTLE, COLOR_PRIMARY,
+    COLOR_PRIMARY_HOVER, COLOR_PRIMARY_PRESSED,
+    FONT_SIZE_TITLE, FONT_SIZE_SUBTITLE, FONT_SIZE_BODY, FONT_SIZE_CAPTION,
+    SPACING_SM, SPACING_MD, SPACING_LG,
+    RADIUS_SM, RADIUS_MD, RADIUS_LG,
+)
 
 
 # ============================================================
 # 共享样式
 # ============================================================
 
-DIALOG_STYLESHEET = """
-    QDialog {
-        color: #e8e8e8;
-    }
-    QListWidget {
-        background-color: #1a1a1a;
-        color: #e8e8e8;
-        border: 1px solid #2a2a2a;
+DIALOG_STYLESHEET = f"""
+    QDialog {{
+        color: {COLOR_TEXT_PRIMARY.name()};
+    }}
+    QListWidget {{
+        background-color: {COLOR_BG_SECONDARY.name()};
+        color: {COLOR_TEXT_PRIMARY.name()};
+        border: 1px solid {COLOR_BORDER.name()};
         outline: none;
-    }
-    QListWidget::item {
+    }}
+    QListWidget::item {{
         padding: 6px 10px;
-    }
-    QListWidget::item:selected {
-        background-color: #252525;
+    }}
+    QListWidget::item:selected {{
+        background-color: {COLOR_BG_TERTIARY.name()};
         color: #a0a0a0;
-    }
-    QListWidget::item:hover {
+    }}
+    QListWidget::item:hover {{
         background-color: #222;
-    }
-    QTableWidget {
-        background-color: #1a1a1a;
-        color: #e8e8e8;
-        border: 1px solid #2a2a2a;
-        gridline-color: #1e1e1e;
-    }
-    QHeaderView::section {
+    }}
+    QTableWidget {{
+        background-color: {COLOR_BG_SECONDARY.name()};
+        color: {COLOR_TEXT_PRIMARY.name()};
+        border: 1px solid {COLOR_BORDER.name()};
+        gridline-color: {COLOR_BORDER_SUBTLE.name()};
+    }}
+    QHeaderView::section {{
         background-color: #0f0f0f;
-        color: #e8e8e8;
+        color: {COLOR_TEXT_PRIMARY.name()};
         padding: 5px;
         border: none;
-    }
-    QTabWidget::pane {
+    }}
+    QTabWidget::pane {{
         border: none;
-        background-color: #121212;
-    }
-    QPushButton {
-        background-color: #1a1a1a;
-        color: #e8e8e8;
-        border: 1px solid #333;
+        background-color: {COLOR_BG_PRIMARY.name()};
+    }}
+    QPushButton {{
+        background-color: {COLOR_BG_SECONDARY.name()};
+        color: {COLOR_TEXT_PRIMARY.name()};
+        border: 1px solid {COLOR_BORDER.name()};
         padding: 6px 14px;
-        border-radius: 4px;
+        border-radius: {RADIUS_SM}px;
         min-width: 60px;
-    }
-    QPushButton:hover {
-        background-color: #252525;
-    }
-    QPushButton#primary {
-        background-color: #d97706;
+    }}
+    QPushButton:hover {{
+        background-color: {COLOR_BG_TERTIARY.name()};
+    }}
+    QPushButton#primary {{
+        background-color: {COLOR_PRIMARY.name()};
         color: #fff;
         border: none;
-    }
-    QPushButton#primary:hover {
-        background-color: #b45309;
-    }
-    QPushButton:disabled {
-        background-color: #1e1e1e;
+    }}
+    QPushButton#primary:hover {{
+        background-color: {COLOR_PRIMARY_HOVER.name()};
+    }}
+    QPushButton:disabled {{
+        background-color: {COLOR_BORDER_SUBTLE.name()};
         color: #555;
-    }
-    QCheckBox {
-        color: #e8e8e8;
+    }}
+    QCheckBox {{
+        color: {COLOR_TEXT_PRIMARY.name()};
         spacing: 6px;
-    }
-    QCheckBox::indicator {
+    }}
+    QCheckBox::indicator {{
         width: 16px;
         height: 16px;
-    }
-    QCheckBox::indicator:unchecked {
-        background-color: #1a1a1a;
-        border: 1px solid #333;
+    }}
+    QCheckBox::indicator:unchecked {{
+        background-color: {COLOR_BG_SECONDARY.name()};
+        border: 1px solid {COLOR_BORDER.name()};
         border-radius: 3px;
-    }
-    QCheckBox::indicator:checked {
-        background-color: #d97706;
-        border: 1px solid #d97706;
+    }}
+    QCheckBox::indicator:checked {{
+        background-color: {COLOR_PRIMARY.name()};
+        border: 1px solid {COLOR_PRIMARY.name()};
         border-radius: 3px;
-    }
-    QLabel {
-        color: #999;
-    }
+    }}
+    QLabel {{
+        color: {COLOR_TEXT_SECONDARY.name()};
+    }}
 """
 
 
@@ -223,7 +232,8 @@ class CategoriesTab(QWidget):
 
         right_header = QHBoxLayout()
         self.rules_label = QLabel("规则列表")
-        self.rules_label.setStyleSheet("color: white; font-weight: bold;")
+        self.rules_label.setStyleSheet(
+            f"color: {COLOR_TEXT_PRIMARY.name()}; font-weight: bold;")
         right_header.addWidget(self.rules_label)
         right_header.addStretch()
         self.btn_add_rule = QPushButton("+ 添加规则")
@@ -409,7 +419,8 @@ class PluginsTab(QWidget):
         layout.setContentsMargins(10, 10, 10, 10)
 
         hint = QLabel("启用/禁用插件。更改在下次启动时生效。")
-        hint.setStyleSheet("color: #808080; font-size: 12px;")
+        hint.setStyleSheet(
+            f"color: {COLOR_TEXT_MUTED.name()}; font-size: 12px;")
         layout.addWidget(hint)
 
         self.table = QTableWidget()
@@ -477,27 +488,27 @@ class GeneralTab(QWidget):
         # ── 侧边栏 ──
         self._sidebar = QListWidget()
         self._sidebar.setFixedWidth(160)
-        self._sidebar.setStyleSheet("""
-            QListWidget {
-                background-color: #1a1a1a;
-                color: #999;
+        self._sidebar.setStyleSheet(f"""
+            QListWidget {{
+                background-color: {COLOR_BG_SECONDARY.name()};
+                color: {COLOR_TEXT_SECONDARY.name()};
                 border: none;
-                border-right: 1px solid #2a2a2a;
+                border-right: 1px solid {COLOR_BORDER.name()};
                 outline: none;
-                font-size: 13px;
-            }
-            QListWidget::item {
+                font-size: {FONT_SIZE_BODY}px;
+            }}
+            QListWidget::item {{
                 padding: 10px 16px;
-            }
-            QListWidget::item:selected {
+            }}
+            QListWidget::item:selected {{
                 background-color: rgba(160,160,160,0.1);
                 color: #a0a0a0;
                 border-left: 2px solid #a0a0a0;
-            }
-            QListWidget::item:hover {
+            }}
+            QListWidget::item:hover {{
                 background-color: rgba(255,255,255,0.05);
-                color: #e8e8e8;
-            }
+                color: {COLOR_TEXT_PRIMARY.name()};
+            }}
         """)
         for label, _key in self.SIDEBAR_ITEMS:
             self._sidebar.addItem(label)
@@ -554,7 +565,8 @@ class GeneralTab(QWidget):
 
         opacity_val = int(self._config.get("opacity", 0.9) * 100) if self._config else 90
         self._opacity_label = QLabel(f"{opacity_val}%")
-        self._opacity_label.setStyleSheet("color: #d97706; font-size: 13px;")
+        self._opacity_label.setStyleSheet(
+            f"color: {COLOR_PRIMARY.name()}; font-size: {FONT_SIZE_BODY}px;")
         layout.addWidget(self._setting_row(
             "透明度", "调整悬浮窗的不透明度", self._opacity_label))
 
@@ -595,7 +607,7 @@ class GeneralTab(QWidget):
         layout.addWidget(self._group_title("主题模式"))
 
         hint = QLabel("选择气泡的显示主题。")
-        hint.setStyleSheet("color: #666; font-size: 12px;")
+        hint.setStyleSheet(f"color: {COLOR_TEXT_MUTED.name()}; font-size: 12px;")
         layout.addWidget(hint)
 
         from PyQt5.QtWidgets import QComboBox
@@ -604,17 +616,17 @@ class GeneralTab(QWidget):
         self.theme_combo.addItem("亮色模式", "light")
         if self._current_theme == "light":
             self.theme_combo.setCurrentIndex(1)
-        self.theme_combo.setStyleSheet("""
-            QComboBox {
-                background-color: #1a1a1a; color: white;
-                border: 1px solid #2a2a2a; padding: 6px 10px;
-                border-radius: 4px; min-width: 200px;
-            }
-            QComboBox::drop-down { border: none; }
-            QComboBox QAbstractItemView {
-                background-color: #1a1a1a; color: white;
-                selection-background-color: #252525;
-            }
+        self.theme_combo.setStyleSheet(f"""
+            QComboBox {{
+                background-color: {COLOR_BG_SECONDARY.name()}; color: white;
+                border: 1px solid {COLOR_BORDER.name()}; padding: 6px 10px;
+                border-radius: {RADIUS_SM}px; min-width: 200px;
+            }}
+            QComboBox::drop-down {{ border: none; }}
+            QComboBox QAbstractItemView {{
+                background-color: {COLOR_BG_SECONDARY.name()}; color: white;
+                selection-background-color: {COLOR_BG_TERTIARY.name()};
+            }}
         """)
         layout.addWidget(self.theme_combo)
 
@@ -630,7 +642,8 @@ class GeneralTab(QWidget):
         layout.setContentsMargins(20, 16, 20, 16)
 
         placeholder = QLabel("通知功能开发中...")
-        placeholder.setStyleSheet("color: #666; font-size: 13px;")
+        placeholder.setStyleSheet(
+            f"color: {COLOR_TEXT_MUTED.name()}; font-size: {FONT_SIZE_BODY}px;")
         placeholder.setAlignment(Qt.AlignCenter)
         layout.addWidget(placeholder)
 
@@ -642,8 +655,9 @@ class GeneralTab(QWidget):
         """创建分组标题"""
         label = QLabel(text)
         label.setStyleSheet(
-            "font-size: 14px; font-weight: bold; color: #e8e8e8;"
-            "padding: 12px 0 8px 0; border-bottom: 1px solid #2a2a2a;")
+            f"font-size: {FONT_SIZE_SUBTITLE}px; font-weight: bold;"
+            f" color: {COLOR_TEXT_PRIMARY.name()};"
+            f" padding: 12px 0 8px 0; border-bottom: 1px solid {COLOR_BORDER.name()};")
         return label
 
     def _create_toggle(self, checked: bool = False):
@@ -660,9 +674,11 @@ class GeneralTab(QWidget):
         left = QVBoxLayout()
         left.setSpacing(4)
         label = QLabel(label_text)
-        label.setStyleSheet("font-size: 13px; color: #e8e8e8;")
+        label.setStyleSheet(
+            f"font-size: {FONT_SIZE_BODY}px; color: {COLOR_TEXT_PRIMARY.name()};")
         desc = QLabel(desc_text)
-        desc.setStyleSheet("font-size: 11px; color: #666;")
+        desc.setStyleSheet(
+            f"font-size: {FONT_SIZE_CAPTION}px; color: {COLOR_TEXT_MUTED.name()};")
         left.addWidget(label)
         left.addWidget(desc)
 

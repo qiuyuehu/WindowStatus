@@ -11,26 +11,34 @@ from PyQt5.QtGui import QFont
 from plugins.base import Plugin
 from plugins.utils import FramelessDialog
 from kernel.event_bus import Events
+from plugins.common_styles import (
+    COLOR_BG_PRIMARY, COLOR_BG_SECONDARY, COLOR_BG_TERTIARY,
+    COLOR_TEXT_PRIMARY, COLOR_TEXT_SECONDARY, COLOR_TEXT_MUTED,
+    COLOR_BORDER, COLOR_PRIMARY,
+    FONT_SIZE_BODY,
+    SPACING_SM, SPACING_MD,
+    RADIUS_MD,
+)
 
 
 class AboutDialog(FramelessDialog):
     """关于窗口"""
 
-    STYLESHEET = """
-        QLabel {
-            color: #e8e8e8;
-        }
-        QPushButton {
-            background-color: #1a1a1a;
-            color: #e8e8e8;
-            border: 1px solid #333;
-            padding: 8px 20px;
-            border-radius: 6px;
-            font-size: 13px;
-        }
-        QPushButton:hover {
-            background-color: #252525;
-        }
+    STYLESHEET = f"""
+        QLabel {{
+            color: {COLOR_TEXT_PRIMARY.name()};
+        }}
+        QPushButton {{
+            background-color: {COLOR_BG_SECONDARY.name()};
+            color: {COLOR_TEXT_PRIMARY.name()};
+            border: 1px solid {COLOR_BORDER.name()};
+            padding: {SPACING_SM}px 20px;
+            border-radius: {RADIUS_MD}px;
+            font-size: {FONT_SIZE_BODY}px;
+        }}
+        QPushButton:hover {{
+            background-color: {COLOR_BG_TERTIARY.name()};
+        }}
     """
 
     def __init__(self, version: str = "v3.3.0", parent=None):
@@ -52,7 +60,7 @@ class AboutDialog(FramelessDialog):
         version_label = QLabel(version)
         version_label.setFont(QFont("Microsoft YaHei UI", 12))
         version_label.setAlignment(Qt.AlignCenter)
-        version_label.setStyleSheet("color: #d97706;")
+        version_label.setStyleSheet(f"color: {COLOR_PRIMARY.name()};")
         layout.addWidget(version_label)
 
         # 描述
@@ -62,7 +70,7 @@ class AboutDialog(FramelessDialog):
         )
         desc.setFont(QFont("Microsoft YaHei UI", 10))
         desc.setAlignment(Qt.AlignCenter)
-        desc.setStyleSheet("color: #999;")
+        desc.setStyleSheet(f"color: {COLOR_TEXT_SECONDARY.name()};")
         layout.addWidget(desc)
 
         # 署名
@@ -76,13 +84,13 @@ class AboutDialog(FramelessDialog):
         author2 = QLabel("开发与设计：衾衾 (Hermes Agent)")
         author2.setFont(QFont("Microsoft YaHei UI", 10))
         author2.setAlignment(Qt.AlignCenter)
-        author2.setStyleSheet("color: #d97706;")
+        author2.setStyleSheet(f"color: {COLOR_PRIMARY.name()};")
         layout.addWidget(author2)
 
         # GitHub 链接
         github_link = QLabel(
-            '<a href="https://github.com/qiuyuehu/WindowStatus"'
-            ' style="color: #d97706;">GitHub 仓库</a>'
+            f'<a href="https://github.com/qiuyuehu/WindowStatus"'
+            f' style="color: {COLOR_PRIMARY.name()};">GitHub 仓库</a>'
         )
         github_link.setFont(QFont("Microsoft YaHei UI", 10))
         github_link.setAlignment(Qt.AlignCenter)
